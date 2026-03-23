@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { getSubscriptionStatus } from '@/lib/subscription'
-import { Sparkles, Upload, ArrowRight, Camera, ImageIcon, CheckCircle2, Loader2, Lock } from 'lucide-react'
+import { Sparkles, Upload, ArrowRight, Camera, ImageIcon, Loader2, Lock } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function NewProductPage() {
@@ -66,7 +66,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div className="animate-fade-up" style={{ color: 'white', padding: '1.2rem', maxWidth: '500px', margin: '0 auto' }}>
+    <div style={{ color: 'white', padding: '1.2rem', maxWidth: '500px', margin: '0 auto' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems:'center' }}>
         <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
            <button onClick={() => router.back()} style={{ background: '#111', border: '1px solid #222', color: '#666', padding: '10px', borderRadius: '15px' }}><ArrowRight size={22} /></button>
@@ -78,7 +78,7 @@ export default function NewProductPage() {
       </header>
       <div style={{ display: 'grid', gap: '1.2rem' }}>
         <div onClick={() => galleryRef.current?.click()} style={{ background: '#080808', height: '220px', borderRadius: '2rem', border: '2px dashed #222', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-          {imagePreview ? <img src={imagePreview} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <div style={{textAlign:'center', opacity: 0.4}}><Upload size={40} color="#D4AF37" /><p style={{fontSize:'0.8rem', marginTop:'12px'}}>رفع صورة</p></div>}
+          {imagePreview ? <img src={imagePreview} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="preview" /> : <div style={{textAlign:'center', opacity: 0.4}}><Upload size={40} color="#D4AF37" /><p style={{fontSize:'0.8rem', marginTop:'12px'}}>رفع صورة</p></div>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: '12px' }}>
             <button onClick={() => cameraRef.current?.click()} style={{ background: '#111', border: '1px solid #222', color: '#fff', padding: '15px', borderRadius: '18px', display:'flex', justifyContent:'center' }}><Camera size={24} /></button>
@@ -99,7 +99,7 @@ export default function NewProductPage() {
               <input type="number" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', outline:'none' }} value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
             </div>
           </div>
-          <button onClick={handleSave} disabled={saving} style={{ background: 'linear-gradient(45deg, #D4AF37, #FBF5B7)', color: '#000', padding: '1.2rem', borderRadius: '1.5rem', fontWeight: 950, border: 'none', cursor: 'pointer' }}>اعتماد المنتج</button>
+          <button onClick={handleSave} disabled={saving} style={{ background: 'linear-gradient(45deg, #D4AF37, #FBF5B7)', color: '#000', padding: '1.2rem', borderRadius: '1.5rem', fontWeight: 950, border: 'none', cursor: 'pointer' }}>{saving ? 'جاري الحفظ...' : 'اعتماد المنتج'}</button>
         </div>
       </div>
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && handleImage(e.target.files[0])} />
