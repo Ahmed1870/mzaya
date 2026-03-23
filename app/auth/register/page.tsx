@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Eye, EyeOff, UserPlus } from 'lucide-react'
 
-export default function RegisterPage() {
+// فصلنا المحتوى في Component لوحده عشان الـ Suspense
+function RegisterContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -17,42 +18,23 @@ export default function RegisterPage() {
   const [mounted, setMounted] = useState(false)
   const [focusField, setFocusField] = useState<string|null>(null)
 
-  // الميكانيكا: اصطياد كود الإحالة وحفظه
   useEffect(() => { 
     setTimeout(() => setMounted(true), 100)
     const ref = searchParams.get('ref')
-    if (ref) {
-      localStorage.setItem('mazaya_referrer', ref)
-    }
+    if (ref) localStorage.setItem('mazaya_referrer', ref)
   }, [searchParams])
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     if (form.password.length < 6) { setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return }
     setLoading(true); setError('')
-
-    // جلب كود الإحالة من المخزن المؤقت
     const referrerId = localStorage.getItem('mazaya_referrer')
-
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email, 
-      password: form.password,
-      options: { 
-        data: { 
-          full_name: form.full_name, 
-          shop_name: form.shop_name,
-          referrer_id: referrerId // الربط الميكانيكي بالإحالة
-        } 
-      }
+    const { error } = await supabase.auth.signUp({
+      email: form.email, password: form.password,
+      options: { data: { full_name: form.full_name, shop_name: form.shop_name, referrer_id: referrerId } }
     })
-
-    if (error) { 
-      setError(error.message); 
-      setLoading(false) 
-    } else {
-      setSuccess(true)
-      localStorage.removeItem('mazaya_referrer') // تنظيف بعد النجاح
-    }
+    if (error) { setError(error.message); setLoading(false) }
+    else { setSuccess(true); localStorage.removeItem('mazaya_referrer') }
   }
 
   const inputStyle = (field: string) => ({
@@ -69,26 +51,15 @@ export default function RegisterPage() {
   })
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@700;800;900&display=swap');
-        @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
-        @keyframes spin{to{transform:rotate(360deg)}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-      `}</style>
-
-      <div style={{minHeight:'100vh',background:'#020202',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'IBM Plex Sans Arabic',sans-serif",direction:'rtl',padding:'1rem',position:'relative',overflow:'hidden'}}>
+    <div style={{minHeight:'100vh',background:'#020202',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'IBM Plex Sans Arabic',sans-serif",direction:'rtl',padding:'1rem',position:'relative',overflow:'hidden'}}>
         <div style={{position:'absolute',inset:0,backgroundImage:'linear-gradient(rgba(212,175,55,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(212,175,55,0.02) 1px,transparent 1px)',backgroundSize:'60px 60px',maskImage:'radial-gradient(ellipse at center,black 20%,transparent 70%)'}}/>
-        
         <div style={{position:'relative',zIndex:1,width:'100%',maxWidth:440}}>
           {success ? (
             <div style={{background:'rgba(10,10,8,0.75)',backdropFilter:'blur(24px)',border:'1px solid rgba(212,175,55,0.15)',borderRadius:'1.75rem',padding:'2.5rem',textAlign:'center',animation:'fadeUp .5s ease'}}>
               <div style={{fontSize:'3.5rem',marginBottom:'1rem'}}>✉️</div>
               <h2 style={{fontFamily:'Tajawal,sans-serif',fontWeight:900,color:'#D4AF37',fontSize:'1.3rem',marginBottom:'.5rem'}}>تم إنشاء حسابك!</h2>
               <p style={{color:'rgba(255,255,255,0.4)',fontSize:'.875rem',marginBottom:'1.5rem'}}>تحقق من بريدك الإلكتروني لتفعيل الحساب</p>
-              <Link href="/auth/login" style={{display:'inline-flex',alignItems:'center',gap:'.5rem',padding:'.85rem 2rem',borderRadius:'1rem',background:'linear-gradient(135deg,#D4AF37,#c9a227)',color:'#020202',fontFamily:'Tajawal,sans-serif',fontWeight:900,textDecoration:'none',fontSize:'.9rem'}}>
-                تسجيل الدخول
-              </Link>
+              <Link href="/auth/login" style={{display:'inline-flex',alignItems:'center',gap:'.5rem',padding:'.85rem 2rem',borderRadius:'1rem',background:'linear-gradient(135deg,#D4AF37,#c9a227)',color:'#020202',fontFamily:'Tajawal,sans-serif',fontWeight:900,textDecoration:'none',fontSize:'.9rem'}}>تسجيل الدخول</Link>
             </div>
           ) : (
             <>
@@ -98,11 +69,9 @@ export default function RegisterPage() {
                 </div>
                 <h1 style={{fontFamily:'Tajawal,sans-serif',fontWeight:900,fontSize:'2rem',background:'linear-gradient(135deg,#D4AF37,#f5e070,#D4AF37)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',animation:'shimmer 3s linear infinite'}}>MAZAYA</h1>
               </div>
-
-              <div style={{background:'rgba(10,10,8,0.75)',backdropFilter:'blur(24px)',border:'1px solid rgba(212,175,55,0.15)',borderRadius:'1.75rem',padding:'2rem',boxShadow:'0 24px 60px rgba(0,0,0,0.6)',opacity:mounted?1:0,transition:'all .6s ease .15s'}}>
+              <div style={{background:'rgba(10,10,8,0.75)',backdropFilter:'blur(24px)',border:'1px solid rgba(212,175,55,0.15)',borderRadius:'1.75rem',padding:'2rem',boxShadow:'0 24px 60px rgba(0,0,0,0.6)',opacity:mounted?1:0,transform:mounted?'translateY(0)':'translateY(20px)',transition:'all .6s ease .15s'}}>
                 <h2 style={{fontFamily:'Tajawal,sans-serif',fontWeight:800,color:'white',fontSize:'1.2rem',textAlign:'center',marginBottom:'.3rem'}}>إنشاء حساب جديد</h2>
                 <p style={{color:'rgba(255,255,255,0.25)',fontSize:'.8rem',textAlign:'center',marginBottom:'1.75rem'}}>ابدأ رحلتك مع مزايا مجاناً</p>
-
                 <form onSubmit={handleRegister} style={{display:'grid',gap:'1rem'}}>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'1rem'}}>
                     <div>
@@ -122,24 +91,34 @@ export default function RegisterPage() {
                     <label style={{display:'block',fontSize:'.75rem',color:'rgba(255,255,255,0.4)',marginBottom:'.4rem'}}>كلمة المرور *</label>
                     <div style={{position:'relative'}}>
                       <input style={{...inputStyle('pass'),paddingLeft:'3rem'}} type={showPass?'text':'password'} placeholder="٦ أحرف على الأقل" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} onFocus={()=>setFocusField('pass')} onBlur={()=>setFocusField(null)} required/>
-                      <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',left:'1rem',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer'}}>
-                        {showPass?<EyeOff size={15}/>:<Eye size={15}/>}
-                      </button>
+                      <button type="button" onClick={()=>setShowPass(!showPass)} style={{position:'absolute',left:'1rem',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:'rgba(255,255,255,0.3)',cursor:'pointer'}}>{showPass?<EyeOff size={15}/>:<Eye size={15}/>}</button>
                     </div>
                   </div>
                   {error && <div style={{padding:'.7rem 1rem',borderRadius:'.85rem',background:'rgba(231,76,60,0.1)',border:'1px solid rgba(231,76,60,0.2)',color:'#e74c3c',fontSize:'.8rem'}}>⚠️ {error}</div>}
-                  <button type="submit" disabled={loading} style={{padding:'1rem',borderRadius:'1rem',border:'none',background:loading?'rgba(212,175,55,0.5)':'linear-gradient(135deg,#D4AF37,#f0d060,#c9a227)',color:'#020202',fontFamily:'Tajawal,sans-serif',fontWeight:900,fontSize:'1rem',cursor:loading?'default':'pointer',boxShadow:'0 4px 24px rgba(212,175,55,0.3)',display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}>
-                    {loading?<div style={{width:18,height:18,border:'2px solid rgba(0,0,0,0.2)',borderTopColor:'#020202',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>:<><UserPlus size={17}/> إنشاء الحساب مجاناً</>}
-                  </button>
+                  <button type="submit" disabled={loading} style={{padding:'1rem',borderRadius:'1rem',border:'none',background:loading?'rgba(212,175,55,0.5)':'linear-gradient(135deg,#D4AF37,#f0d060,#c9a227)',color:'#020202',fontFamily:'Tajawal,sans-serif',fontWeight:900,fontSize:'1rem',cursor:loading?'default':'pointer',boxShadow:'0 4px 24px rgba(212,175,55,0.3)',display:'flex',alignItems:'center',justifyContent:'center',gap:'.5rem'}}>{loading?<div style={{width:18,height:18,border:'2px solid rgba(0,0,0,0.2)',borderTopColor:'#020202',borderRadius:'50%',animation:'spin 1s linear infinite'}}/>:<><UserPlus size={17}/> إنشاء الحساب مجاناً</>}</button>
                 </form>
-                <p style={{textAlign:'center',marginTop:'1.25rem',color:'rgba(255,255,255,0.2)',fontSize:'.78rem'}}>
-                  لديك حساب؟{' '}<Link href="/auth/login" style={{color:'#D4AF37',fontWeight:700,textDecoration:'none'}}>تسجيل الدخول</Link>
-                </p>
+                <p style={{textAlign:'center',marginTop:'1.25rem',color:'rgba(255,255,255,0.2)',fontSize:'.78rem'}}>لديك حساب؟{' '}<Link href="/auth/login" style={{color:'#D4AF37',fontWeight:700,textDecoration:'none'}}>تسجيل الدخول</Link></p>
               </div>
             </>
           )}
         </div>
       </div>
+  )
+}
+
+// الصفحة الأساسية اللي فيرسيل بيشوفها
+export default function RegisterPage() {
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@700;800;900&display=swap');
+        @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+      `}</style>
+      <Suspense fallback={<div style={{minHeight:'100vh',background:'#020202'}}/>}>
+        <RegisterContent />
+      </Suspense>
     </>
   )
 }
