@@ -1,66 +1,31 @@
 import { createClient } from '@/lib/supabase'
 
 export const PLAN_CONFIGS = {
-  free: {
-    label: 'الباقة المجانية',
-    maxProducts: 5,
-    canSeeCRM: false,
-    canSeeAds: false,
-    canUseAI: false,
-    price: 0
-  },
-  pro: {
-    label: 'الباقة الاحترافية',
-    maxProducts: 999999,
-    canSeeCRM: true,
-    canSeeAds: false,
-    canUseAI: false,
-    price: 99
-  },
-  business: {
-    label: 'باقة البيزنس',
-    maxProducts: 999999,
-    canSeeCRM: true,
-    canSeeAds: true,
-    canUseAI: true,
-    price: 199
-  }
+  free: { label: 'الباقة المجانية', maxProducts: 5, canUseAI: false },
+  pro: { label: 'الباقة الاحترافية', maxProducts: 999999, canUseAI: false },
+  business: { label: 'باقة البيزنس', maxProducts: 999999, canUseAI: true }
 }
-
-export type PlanType = keyof typeof PLAN_CONFIGS;
 
 export async function getSubscriptionStatus() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('plan_name')
-    .eq('id', user.id)
-    .single()
+  const { data: profile } = await supabase.from('profiles').select('plan_name').eq('id', user.id).single()
+  
+  let currentPlan: 'free' | 'pro' | 'business' = 'free'
+  const dbValue = (profile?.plan_name || 'free').toLowerCase().trim()
 
-  // المترجم الذكي الخارق: بيحول أي نص لـ lowercase وبيمسح المسافات
-  let currentPlan: PlanType = 'free'
-  const dbValue = (profile?.plan_name || 'free').toLowerCase().trim();
+  // فحص ذكي يقبل كل الصيغ (business, Business, بزنس, البيزنس)
+  if (dbValue.includes('business') || dbValue.includes('بزنس')) currentPlan = 'business'
+  else if (dbValue.includes('pro') || dbValue.includes('احترافية')) currentPlan = 'pro'
 
-  // مخرجات Supabase المحتملة (عربي/إنجليزي/كبير/صغير)
-  const isPro = ['pro', 'professional', 'احترافية', 'الاحترافية', 'الاحترافيه'].some(v => dbValue.includes(v));
-  const isBusiness = ['business', 'biz', 'بزنس', 'البيزنس', 'بيزنس'].some(v => dbValue.includes(v));
-
-  if (isBusiness) {
-    currentPlan = 'business';
-  } else if (isPro) {
-    currentPlan = 'pro';
-  }
-
-  const config = PLAN_CONFIGS[currentPlan];
-
+  const config = PLAN_CONFIGS[currentPlan]
   return {
     plan: currentPlan,
     label: config.label,
-    limits: config,
-    isUnlimited: currentPlan === 'business' || currentPlan === 'pro',
-    canUseAI: config.canUseAI
+    isUnlimited: currentPlan !== 'free',
+    canUseAI: config.canUseAI,
+    count: 0 // سيتم تحديثه في الصفحة
   }
 }
