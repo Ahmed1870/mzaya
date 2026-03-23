@@ -1,6 +1,6 @@
 {
   "name": "mzaya",
-  "version": "2.2.9",
+  "version": "3.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

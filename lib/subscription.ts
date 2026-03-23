@@ -9,17 +9,18 @@ export const PLAN_CONFIGS = {
 export async function getSubscriptionStatus() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  if (!user) return { plan: 'free', label: 'غير مسجل', isUnlimited: false, canUseAI: false, count: 0 }
 
   const { data: profile } = await supabase.from('profiles').select('plan_name').eq('id', user.id).single()
   
   let currentPlan: 'free' | 'pro' | 'business' = 'free'
-  const dbValue = (profile?.plan_name || '').trim()
+  // تحويل القيمة لـ String وتنظيفها تماماً
+  const dbValue = String(profile?.plan_name || '').trim().toLowerCase()
 
-  // الربط المباشر مع مسميات سوبا بيز اللي في الصورة
-  if (dbValue === 'احترافية' || dbValue.toLowerCase().includes('pro')) {
+  // الربط بناءً على الصورة اللي بعتها (احترافية = pro)
+  if (dbValue.includes('احترافية') || dbValue.includes('pro')) {
     currentPlan = 'pro'
-  } else if (dbValue === 'بزنس' || dbValue === 'البيزنس' || dbValue.toLowerCase().includes('business')) {
+  } else if (dbValue.includes('بزنس') || dbValue.includes('business') || dbValue.includes('بيزنس')) {
     currentPlan = 'business'
   }
 
