@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase'
 
-// المصدر الوحيد للحقيقة (Single Source of Truth)
 export const PLAN_CONFIGS = {
   free: {
-    label: 'المجانية',
+    label: 'الباقة المجانية',
     maxProducts: 5,
     canSeeCRM: false,
     canSeeAds: false,
@@ -11,7 +10,7 @@ export const PLAN_CONFIGS = {
     price: 0
   },
   pro: {
-    label: 'الاحترافية',
+    label: 'الباقة الاحترافية',
     maxProducts: 999999,
     canSeeCRM: true,
     canSeeAds: false,
@@ -19,7 +18,7 @@ export const PLAN_CONFIGS = {
     price: 99
   },
   business: {
-    label: 'البيزنس',
+    label: 'باقة البيزنس',
     maxProducts: 999999,
     canSeeCRM: true,
     canSeeAds: true,
@@ -41,14 +40,21 @@ export async function getSubscriptionStatus() {
     .eq('id', user.id)
     .single()
 
-  // المترجم الذكي: بيحول الاسم العربي لاسم برمجي عشان السيستم يفهم
+  // المترجم الذكي الخارق: بيحول أي نص لـ lowercase وبيمسح المسافات
   let currentPlan: PlanType = 'free'
-  const dbPlan = profile?.plan_name || 'free'
-  
-  if (dbPlan === 'احترافية' || dbPlan === 'pro') currentPlan = 'pro'
-  else if (dbPlan === 'بزنس' || dbPlan === 'business') currentPlan = 'business'
+  const dbValue = (profile?.plan_name || 'free').toLowerCase().trim();
 
-  const config = PLAN_CONFIGS[currentPlan]
+  // مخرجات Supabase المحتملة (عربي/إنجليزي/كبير/صغير)
+  const isPro = ['pro', 'professional', 'احترافية', 'الاحترافية', 'الاحترافيه'].some(v => dbValue.includes(v));
+  const isBusiness = ['business', 'biz', 'بزنس', 'البيزنس', 'بيزنس'].some(v => dbValue.includes(v));
+
+  if (isBusiness) {
+    currentPlan = 'business';
+  } else if (isPro) {
+    currentPlan = 'pro';
+  }
+
+  const config = PLAN_CONFIGS[currentPlan];
 
   return {
     plan: currentPlan,
