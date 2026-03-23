@@ -11,30 +11,23 @@ export async function getSubscriptionStatus() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // بناءً على صورك: العمود اسمه plan وليس plan_name
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, subscription_status, subscription_end_date, max_products, role')
+    .select('plan, subscription_status, role, max_products')
     .eq('id', user.id)
     .single()
 
   let currentPlan: 'free' | 'pro' | 'business' = 'free'
-  const dbPlan = (profile?.plan || 'free').trim().toLowerCase()
+  const dbPlan = (profile?.plan || '').trim().toLowerCase()
   const status = profile?.subscription_status || 'inactive'
-  
-  const now = new Date()
-  const endDate = profile?.subscription_end_date ? new Date(profile.subscription_end_date) : null
-  const isExpired = endDate ? endDate < now : false
 
-  if (status === 'active' && !isExpired) {
+  if (status === 'active' || profile?.role === 'admin') {
     if (dbPlan.includes('احترافية') || dbPlan.includes('pro')) {
       currentPlan = 'pro'
     } else if (dbPlan.includes('بزنس') || dbPlan.includes('بيزنس') || dbPlan.includes('business')) {
       currentPlan = 'business'
     }
   }
-
-  if (profile?.role === 'admin') currentPlan = 'business'
 
   const config = PLAN_CONFIGS[currentPlan]
   return {
