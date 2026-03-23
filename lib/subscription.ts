@@ -11,24 +11,25 @@ export async function getSubscriptionStatus() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // بناءً على صورك: العمود اسمه plan وليس plan_name
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan_name, subscription_status, end_subscription, max_products, role')
+    .select('plan, subscription_status, subscription_end_date, max_products, role')
     .eq('id', user.id)
     .single()
 
   let currentPlan: 'free' | 'pro' | 'business' = 'free'
-  const dbPlanName = (profile?.plan_name || '').trim()
+  const dbPlan = (profile?.plan || 'free').trim().toLowerCase()
   const status = profile?.subscription_status || 'inactive'
   
   const now = new Date()
-  const endDate = profile?.end_subscription ? new Date(profile.end_subscription) : null
+  const endDate = profile?.subscription_end_date ? new Date(profile.subscription_end_date) : null
   const isExpired = endDate ? endDate < now : false
 
   if (status === 'active' && !isExpired) {
-    if (dbPlanName === 'احترافية' || dbPlanName.toLowerCase().includes('pro')) {
+    if (dbPlan.includes('احترافية') || dbPlan.includes('pro')) {
       currentPlan = 'pro'
-    } else if (dbPlanName.includes('بزنس') || dbPlanName.includes('بيزنس') || dbPlanName.toLowerCase().includes('business')) {
+    } else if (dbPlan.includes('بزنس') || dbPlan.includes('بيزنس') || dbPlan.includes('business')) {
       currentPlan = 'business'
     }
   }

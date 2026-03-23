@@ -12,10 +12,9 @@ export default function NewProductPage() {
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
 
-  const [form, setForm] = useState({ name: '', description: '', price: '', cost: '', stock: '0', category: '' })
+  const [form, setForm] = useState({ name: '', description: '', price: '', cost: '', stock: '0' })
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState('')
-  const [aiLoading, setAiLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [userStats, setUserStats] = useState({ plan: 'جاري التحميل...', count: 0, isUnlimited: false, canUseAI: false, maxLimit: 5 })
 
@@ -34,17 +33,10 @@ export default function NewProductPage() {
     checkLimits()
   }, [])
 
-  const handleImage = (file: File) => {
-    setImageFile(file)
-    setImagePreview(URL.createObjectURL(file))
-  }
-
   const handleSave = async (e: any) => {
     e.preventDefault()
-    if (saving) return
-    if (!userStats.isUnlimited && userStats.count >= userStats.maxLimit) {
-      return Swal.fire('وصلت للحد الأقصى!', `باقتك الحالية تسمح بـ ${userStats.maxLimit} منتجات فقط.`, 'warning')
-    }
+    if (!form.name || !form.price) return Swal.fire('خطأ', 'برجاء كتابة اسم المنتج والسعر', 'error')
+    
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -54,56 +46,62 @@ export default function NewProductPage() {
         await supabase.storage.from('product-images').upload(path, imageFile)
         imageUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl
       }
+
+      // الحل النهائي لخطأ Column Price: تحويل السعر لرقم وضمان عدم إرسال Null
       const { error } = await supabase.from('products').insert({
-        user_id: user?.id, name: form.name.trim(), price: parseFloat(form.price), cost: form.cost ? parseFloat(form.cost) : 0,
-        stock: parseInt(form.stock) || 0, stock_quantity: parseInt(form.stock) || 0,
-        description: form.description, image_url: imageUrl, is_active: true
+        user_id: user?.id,
+        name: form.name.trim(),
+        price: parseFloat(form.price) || 0, 
+        cost: parseFloat(form.cost) || 0,
+        stock: parseInt(form.stock) || 0,
+        description: form.description,
+        image_url: imageUrl
       })
+
       if (error) throw error
-      router.push('/dashboard/products')
-      router.refresh()
-    } catch (err: any) { Swal.fire('خطأ', err.message, 'error') } finally { setSaving(false) }
+      Swal.fire('تم!', 'تمت إضافة المنتج بنجاح', 'success').then(() => router.push('/dashboard/products'))
+    } catch (err: any) { 
+      Swal.fire('خطأ من الداتابيز', err.message, 'error') 
+    } finally { setSaving(false) }
   }
 
   return (
-    <div style={{ color: 'white', padding: '1.2rem', maxWidth: '500px', margin: '0 auto' }}>
+    <div style={{ color: 'white', padding: '1.2rem', maxWidth: '500px', margin: '0 auto', direction: 'rtl' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems:'center' }}>
-        <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
-           <button onClick={() => router.back()} style={{ background: '#111', border: '1px solid #222', color: '#666', padding: '10px', borderRadius: '15px' }}><ArrowRight size={22} /></button>
-           <h1 style={{ fontSize: '1.3rem', fontWeight: 900, color: '#D4AF37' }}>إضافة منتج ذكي</h1>
-        </div>
-        <div style={{ background: 'rgba(212, 175, 55, 0.1)', padding: '8px 15px', borderRadius: '20px', fontSize: '0.75rem', border: '1px solid rgba(212, 175, 55, 0.2)', color: '#D4AF37', fontWeight: 700 }}>
+        <button onClick={() => router.back()} style={{ background: '#111', border: '1px solid #222', color: '#666', padding: '10px', borderRadius: '15px' }}><ArrowRight size={22} /></button>
+        <div style={{ background: 'rgba(212, 175, 55, 0.1)', padding: '8px 15px', borderRadius: '20px', color: '#D4AF37', fontSize: '0.8rem' }}>
            {userStats.plan}: {userStats.isUnlimited ? '∞' : `${userStats.count}/${userStats.maxLimit}`}
         </div>
       </header>
+      
       <div style={{ display: 'grid', gap: '1.2rem' }}>
-        <div onClick={() => galleryRef.current?.click()} style={{ background: '#080808', height: '220px', borderRadius: '2rem', border: '2px dashed #222', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', overflow: 'hidden' }}>
-          {imagePreview ? <img src={imagePreview} style={{width:'100%', height:'100%', objectFit:'cover'}} alt="preview" /> : <div style={{textAlign:'center', opacity: 0.4}}><Upload size={40} color="#D4AF37" /><p style={{fontSize:'0.8rem', marginTop:'12px'}}>رفع صورة</p></div>}
+        <div onClick={() => galleryRef.current?.click()} style={{ background: '#080808', height: '200px', borderRadius: '2rem', border: '2px dashed #222', display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden' }}>
+          {imagePreview ? <img src={imagePreview} style={{width:'100%', height:'100%', objectFit:'cover'}} /> : <Upload size={40} opacity={0.3} />}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: '12px' }}>
-            <button onClick={() => cameraRef.current?.click()} style={{ background: '#111', border: '1px solid #222', color: '#fff', padding: '15px', borderRadius: '18px', display:'flex', justifyContent:'center' }}><Camera size={24} /></button>
-            <button onClick={() => galleryRef.current?.click()} style={{ background: '#111', border: '1px solid #222', color: '#fff', padding: '15px', borderRadius: '18px', display:'flex', justifyContent:'center' }}><ImageIcon size={24} /></button>
-            <button disabled={!imageFile || !userStats.canUseAI} style={{ background: userStats.canUseAI ? 'linear-gradient(45deg, #D4AF37, #FBF5B7)' : '#1a1a1a', color: userStats.canUseAI ? '#000' : '#444', border: 'none', padding: '15px', borderRadius: '18px', fontWeight: 900, display:'flex', alignItems:'center', justifyContent:'center', gap:'8px' }}>
-              {aiLoading ? <Loader2 className="animate-spin" size={24} /> : <><Sparkles size={20} /> {!userStats.canUseAI && <Lock size={14} />} ذكاء اصطناعي</>}
-            </button>
-        </div>
+
         <div style={{ background: '#111', padding: '1.5rem', borderRadius: '2rem', border: '1px solid #222', display: 'grid', gap: '1rem' }}>
           <input placeholder="اسم المنتج" style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '1rem', borderRadius: '15px', color: '#fff' }} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 12px'}}>
-              <label style={{fontSize:'0.6rem', color:'#444'}}>السعر</label>
+            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'8px 12px'}}>
+              <label style={{fontSize:'0.7rem', color:'#444', display:'block'}}>السعر (مطلوب)</label>
               <input type="number" style={{ width: '100%', background: 'transparent', border: 'none', color: '#D4AF37', fontWeight:900, outline:'none' }} value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
             </div>
-            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 12px'}}>
-              <label style={{fontSize:'0.6rem', color:'#444'}}>الكمية</label>
+            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'8px 12px'}}>
+              <label style={{fontSize:'0.7rem', color:'#444', display:'block'}}>الكمية</label>
               <input type="number" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', outline:'none' }} value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
             </div>
           </div>
-          <button onClick={handleSave} disabled={saving} style={{ background: 'linear-gradient(45deg, #D4AF37, #FBF5B7)', color: '#000', padding: '1.2rem', borderRadius: '1.5rem', fontWeight: 950, border: 'none', cursor: 'pointer' }}>{saving ? 'جاري الحفظ...' : 'اعتماد المنتج'}</button>
+
+          <button onClick={handleSave} disabled={saving} style={{ background: 'linear-gradient(45deg, #D4AF37, #FBF5B7)', color: '#000', padding: '1.2rem', borderRadius: '1.5rem', fontWeight: 950, border: 'none' }}>
+            {saving ? 'جاري الاعتماد...' : 'اعتماد المنتج'}
+          </button>
         </div>
       </div>
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && handleImage(e.target.files[0])} />
-      <input ref={galleryRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => e.target.files?.[0] && handleImage(e.target.files[0])} />
+      <input ref={galleryRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+        const file = e.target.files?.[0];
+        if(file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+      }} />
     </div>
   )
 }
