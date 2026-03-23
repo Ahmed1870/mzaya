@@ -63,7 +63,7 @@ export default function NewProductPage() {
   const handleSave = async (e: any) => {
     e.preventDefault()
     if (saving) return
-    if (!userStats.isUnlimited && userStats.count >= 5) return Swal.fire('وصلت للحد الأقصى!', 'الباقة المجانية تسمح بـ 5 منتجات فقط.', 'warning')
+    if (!userStats.isUnlimited && userStats.count >= userStats.maxLimit) return Swal.fire('وصلت للحد الأقصى!', 'الباقة المجانية تسمح بـ 5 منتجات فقط.', 'warning')
     if (!form.name || !form.price) return Swal.fire('بيانات ناقصة', 'الاسم والسعر مطلوبين', 'error')
     setSaving(true)
     try {
