@@ -36,6 +36,11 @@ export function validateInput(value: string, maxLength = 500): { safe: boolean; 
   return { safe: true, value: sanitize(value) };
 }
 
+// ── Validate Email ──
+export function validateEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 // ── Validate Phone (Egyptian focus) ──
 export function validatePhone(phone: string): boolean {
   // تنظيف الرقم من أي مسافات أو رموز قبل الفحص
@@ -62,14 +67,14 @@ const attemptMap = new Map<string, { count: number; lastAttempt: number }>();
 export function checkClientRateLimit(key: string, maxAttempts = 5, windowMs = 5 * 60 * 1000): boolean {
   const now = Date.now();
   const record = attemptMap.get(key);
-  
+
   if (!record || now - record.lastAttempt > windowMs) {
     attemptMap.set(key, { count: 1, lastAttempt: now });
     return true;
   }
-  
+
   if (record.count >= maxAttempts) return false;
-  
+
   record.count++;
   record.lastAttempt = now;
   return true;
