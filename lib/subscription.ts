@@ -14,11 +14,14 @@ export async function getSubscriptionStatus() {
   const { data: profile } = await supabase.from('profiles').select('plan_name').eq('id', user.id).single()
   
   let currentPlan: 'free' | 'pro' | 'business' = 'free'
-  const dbValue = (profile?.plan_name || 'free').toLowerCase().trim()
+  const dbValue = (profile?.plan_name || '').trim()
 
-  // فحص ذكي يقبل كل الصيغ (business, Business, بزنس, البيزنس)
-  if (dbValue.includes('business') || dbValue.includes('بزنس')) currentPlan = 'business'
-  else if (dbValue.includes('pro') || dbValue.includes('احترافية')) currentPlan = 'pro'
+  // الربط المباشر مع مسميات سوبا بيز اللي في الصورة
+  if (dbValue === 'احترافية' || dbValue.toLowerCase().includes('pro')) {
+    currentPlan = 'pro'
+  } else if (dbValue === 'بزنس' || dbValue === 'البيزنس' || dbValue.toLowerCase().includes('business')) {
+    currentPlan = 'business'
+  }
 
   const config = PLAN_CONFIGS[currentPlan]
   return {
@@ -26,6 +29,6 @@ export async function getSubscriptionStatus() {
     label: config.label,
     isUnlimited: currentPlan !== 'free',
     canUseAI: config.canUseAI,
-    count: 0 // سيتم تحديثه في الصفحة
+    count: 0 
   }
 }
