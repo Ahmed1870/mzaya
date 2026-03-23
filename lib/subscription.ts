@@ -1,26 +1,29 @@
 import { createClient } from '@/lib/supabase'
 
-// تعريف حدود الباقات في منظومة مزايا
+// المصدر الوحيد للحقيقة (Single Source of Truth)
 export const PLAN_CONFIGS = {
   free: {
-    label: 'الباقة المجانية',
-    maxProducts: 10,
+    label: 'المجانية',
+    maxProducts: 5,
     canSeeCRM: false,
     canSeeAds: false,
+    canUseAI: false,
     price: 0
   },
   pro: {
-    label: 'الباقة الاحترافية',
-    maxProducts: 100,
+    label: 'الاحترافية',
+    maxProducts: 999999,
     canSeeCRM: true,
     canSeeAds: false,
+    canUseAI: false,
     price: 99
   },
   business: {
-    label: 'باقة البيزنس',
-    maxProducts: 9999,
+    label: 'البيزنس',
+    maxProducts: 999999,
     canSeeCRM: true,
     canSeeAds: true,
+    canUseAI: true,
     price: 199
   }
 }
@@ -30,36 +33,28 @@ export type PlanType = keyof typeof PLAN_CONFIGS;
 export async function getSubscriptionStatus() {
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  
   if (!user) return null
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan_name, trial_count, ads_generated')
+    .select('plan_name')
     .eq('id', user.id)
     .single()
 
-  // التأكد من أن الخطة موجودة أو الرجوع للمجانية
-  const currentPlan = (profile?.plan_name || 'free') as PlanType
-  const config = PLAN_CONFIGS[currentPlan] || PLAN_CONFIGS.free
+  // المترجم الذكي: بيحول الاسم العربي لاسم برمجي عشان السيستم يفهم
+  let currentPlan: PlanType = 'free'
+  const dbPlan = profile?.plan_name || 'free'
+  
+  if (dbPlan === 'احترافية' || dbPlan === 'pro') currentPlan = 'pro'
+  else if (dbPlan === 'بزنس' || dbPlan === 'business') currentPlan = 'business'
+
+  const config = PLAN_CONFIGS[currentPlan]
 
   return {
     plan: currentPlan,
     label: config.label,
     limits: config,
-    stats: {
-      trials: profile?.trial_count || 0,
-      adsUsed: profile?.ads_generated || 0
-    }
+    isUnlimited: currentPlan === 'business' || currentPlan === 'pro',
+    canUseAI: config.canUseAI
   }
-}
-
-// دالة سريعة للتحقق من الصلاحيات (التناغم الأمني)
-export async function canAccess(feature: 'CRM' | 'Ads') {
-  const status = await getSubscriptionStatus()
-  if (!status) return false
-  
-  if (feature === 'CRM') return status.limits.canSeeCRM
-  if (feature === 'Ads') return status.limits.canSeeAds
-  return false
 }

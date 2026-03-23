@@ -56,7 +56,7 @@ export default function ProductsPage() {
           <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#D4AF37', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Box size={28} /> المخزن الرقمي
           </h1>
-          <p style={{ color: '#444', fontSize: '0.85rem' }}>إدارة مخزونك وتسعير منتجاتك</p>
+          <p style={{ color: '#444', fontSize: '0.85rem' }}>إدارة مخزونك وتسعير منتجاتك (تحت الرقابة الذكية)</p>
         </div>
         <Link href="/dashboard/products/new" style={{ background: '#D4AF37', color: '#000', padding: '0.8rem 1.5rem', borderRadius: '12px', fontWeight: 900, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Plus size={18} /> منتج جديد

@@ -2,7 +2,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { Sparkles, Upload, ArrowRight, Camera, ImageIcon, CheckCircle2, Loader2 } from 'lucide-react'
+import { getSubscriptionStatus } from '@/lib/subscription'
+import { Sparkles, Upload, ArrowRight, Camera, ImageIcon, CheckCircle2, Loader2, Lock } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function NewProductPage() {
@@ -16,21 +17,26 @@ export default function NewProductPage() {
   const [imagePreview, setImagePreview] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [userStats, setUserStats] = useState({ plan: 'مجانية', count: 0, isUnlimited: false })
+  const [userStats, setUserStats] = useState({ plan: 'جاري التحميل...', count: 0, isUnlimited: false, canUseAI: false })
 
   useEffect(() => {
     const checkLimits = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const [{ data: profile }, { count }] = await Promise.all([
-        supabase.from('profiles').select('plan_name').eq('id', user.id).single(),
+      const [status, { count }] = await Promise.all([
+        getSubscriptionStatus(),
         supabase.from('products').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
       ])
 
-      const plan = profile?.plan_name || 'مجانية'
-      const isUnlimited = plan === 'بزنس' || plan === 'احترافية'
-      setUserStats({ plan, count: count || 0, isUnlimited })
+      if (status) {
+        setUserStats({ 
+          plan: status.label, 
+          count: count || 0, 
+          isUnlimited: status.isUnlimited,
+          canUseAI: status.canUseAI 
+        })
+      }
     }
     checkLimits()
   }, [])
@@ -42,6 +48,9 @@ export default function NewProductPage() {
 
   const analyzeWithAI = async (e: any) => {
     e.preventDefault()
+    if (!userStats.canUseAI) {
+      return Swal.fire('ميزة حصرية', 'تحليل المنتجات بالذكاء الاصطناعي متاح لمشتركي باقة البيزنس فقط.', 'info')
+    }
     if (!imageFile) return Swal.fire('ارفع صورة أولاً', '', 'info')
     setAiLoading(true)
     try {
@@ -69,13 +78,13 @@ export default function NewProductPage() {
   const handleSave = async (e: any) => {
     e.preventDefault()
     if (saving) return
-    
+
     if (!userStats.isUnlimited && userStats.count >= 5) {
       return Swal.fire('وصلت للحد الأقصى!', 'الباقة المجانية تسمح بـ 5 منتجات فقط.', 'warning')
     }
 
     if (!form.name || !form.price) return Swal.fire('بيانات ناقصة', 'الاسم والسعر مطلوبين', 'error')
-    
+
     setSaving(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -94,7 +103,7 @@ export default function NewProductPage() {
         price: parseFloat(form.price),
         cost: form.cost ? parseFloat(form.cost) : 0,
         stock: parseInt(form.stock) || 0,
-        stock_quantity: parseInt(form.stock) || 0,
+        stock_quantity: parseInt(form.stock) || 0, // التزامن لعدم حدوث خطأ
         description: form.description,
         category: form.category || null,
         image_url: imageUrl,
@@ -102,7 +111,7 @@ export default function NewProductPage() {
       })
 
       if (saveErr) throw saveErr
-      
+
       await Swal.fire('تم الحفظ!', 'منتجك الآن متاح في المتجر', 'success')
       router.push('/dashboard/products')
       router.refresh()
@@ -116,7 +125,7 @@ export default function NewProductPage() {
       <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', alignItems:'center' }}>
         <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
            <button onClick={() => router.back()} style={{ background: '#111', border: 'none', color: '#666', padding: '8px', borderRadius: '10px' }}><ArrowRight size={20} /></button>
-           <h1 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#D4AF37' }}>إضافة منتج ذكي (V1.4)</h1>
+           <h1 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#D4AF37' }}>إضافة منتج ذكي</h1>
         </div>
         <div style={{ background: '#111', padding: '5px 12px', borderRadius: '10px', fontSize: '0.7rem', border: '1px solid #222' }}>
            الباقة: <span style={{color: '#D4AF37'}}>{userStats.plan}</span> ({userStats.isUnlimited ? '∞' : `${userStats.count}/5`})
@@ -131,14 +140,14 @@ export default function NewProductPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
             <button onClick={(e) => { e.preventDefault(); cameraRef.current?.click() }} style={{ background: '#050505', border: '1px solid #222', color: '#fff', padding: '12px', borderRadius: '12px' }}><Camera size={20} /></button>
             <button onClick={(e) => { e.preventDefault(); galleryRef.current?.click() }} style={{ background: '#050505', border: '1px solid #222', color: '#fff', padding: '12px', borderRadius: '12px' }}><ImageIcon size={20} /></button>
-            <button onClick={analyzeWithAI} disabled={!imageFile || aiLoading} style={{ background: aiLoading ? '#111' : '#D4AF37', color: '#000', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 900 }}>
-              {aiLoading ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+            <button onClick={analyzeWithAI} disabled={!imageFile || aiLoading} style={{ background: aiLoading ? '#111' : userStats.canUseAI ? '#D4AF37' : '#222', color: userStats.canUseAI ? '#000' : '#444', border: 'none', padding: '12px', borderRadius: '12px', fontWeight: 900, position: 'relative' }}>
+              {aiLoading ? <Loader2 className="animate-spin" size={20} /> : <>{!userStats.canUseAI && <Lock size={10} style={{position:'absolute', top:5, right:5}} />}<Sparkles size={20} /></>}
             </button>
         </div>
 
         <div style={{ background: '#111', padding: '1.2rem', borderRadius: '1.5rem', border: '1px solid #222', display: 'grid', gap: '0.8rem' }}>
           <input placeholder="اسم المنتج *" style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '0.8rem', borderRadius: '12px', color: '#fff' }} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <input type="number" placeholder="السعر *" style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '0.8rem', borderRadius: '12px', color: '#fff' }} value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
             <input type="number" placeholder="الكمية" style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '0.8rem', borderRadius: '12px', color: '#fff' }} value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
