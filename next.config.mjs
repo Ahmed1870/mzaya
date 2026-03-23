@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  async rewrites() {
+    return [
+      {
+        source: '/register',
+        destination: '/auth/register',
+      },
+    ];
+  },
+};
 
 export default nextConfig;
-// Mzaya Build Trigger: Mon Mar 23 00:19:12 EET 2026
-// Force Build V7
