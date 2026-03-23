@@ -1,0 +1,143 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Tajawal:wght@400;500;700;800;900&display=swap');
+
+:root {
+  --bg:        #020202;
+  --bg-card:   #0a0a0a;
+  --bg-2:      #0f0f0f;
+  --bg-3:      #141414;
+  
+  /* هوية مزايا - Mzaya Brand Colors */
+  --primary:      #4361ee;
+  --primary-dim:  rgba(67, 97, 238, 0.7);
+  --primary-glow: rgba(67, 97, 238, 0.15);
+  --primary-border: rgba(67, 97, 238, 0.2);
+  
+  --white:     #ffffff;
+  --white-70:  rgba(255,255,255,0.7);
+  --white-40:  rgba(255,255,255,0.4);
+  --white-10:  rgba(255,255,255,0.06);
+  --white-5:   rgba(255,255,255,0.03);
+  --border:    rgba(255,255,255,0.06);
+  
+  --danger:    #ef4444;
+  --success:   #10b981;
+  --primary-bg: rgba(67, 97, 238, 0.08);
+  --text:      #ffffff;
+  --text-muted: rgba(255,255,255,0.45);
+  --sidebar:   #020202;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { direction: rtl; }
+  
+  body {
+    background-color: var(--bg);
+    color: var(--white);
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Tajawal', sans-serif;
+    font-weight: 800;
+  }
+
+  ::selection {
+    background: var(--primary-glow);
+    color: var(--primary);
+  }
+}
+
+@layer components {
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center gap-2 font-bold px-6 py-3 rounded-xl transition-all duration-300 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed select-none overflow-hidden;
+    background: linear-gradient(135deg, var(--primary) 0%, #3a0ca3 100%);
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(67, 97, 238, 0.25), 0 1px 0 rgba(255,255,255,0.1) inset;
+    font-family: 'Tajawal', sans-serif;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 32px rgba(67, 97, 238, 0.4), 0 1px 0 rgba(255,255,255,0.15) inset;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold px-6 py-3 rounded-xl transition-all duration-200 active:scale-95;
+    background: var(--white-10);
+    color: var(--white-70);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+  }
+
+  .btn-secondary:hover {
+    background: var(--white-5);
+    border-color: var(--primary-border);
+    color: var(--white);
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply rounded-2xl overflow-hidden transition-all duration-300;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+  }
+
+  .card:hover {
+    border-color: var(--primary-border);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6), 0 0 0 1px rgba(67, 97, 238, 0.08);
+  }
+
+  .card-gold { /* تم تحويله لهوية مزايا مع الحفاظ على الكلاس للموافقة */
+    @apply rounded-2xl overflow-hidden;
+    background: linear-gradient(135deg, rgba(67, 97, 238, 0.06) 0%, rgba(10,10,10,0.95) 100%);
+    border: 1px solid rgba(67, 97, 238, 0.18);
+    box-shadow: 0 4px 24px rgba(67, 97, 238, 0.08);
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full px-4 py-3 rounded-xl text-sm transition-all duration-200;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--white);
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--primary-border);
+    background: rgba(255,255,255,0.06);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.08);
+  }
+
+  /* ── Sidebar links ── */
+  .sidebar-link.active {
+    background: linear-gradient(135deg, rgba(67, 97, 238, 0.15), rgba(67, 97, 238, 0.05));
+    color: var(--primary);
+    border: 1px solid rgba(67, 97, 238, 0.15);
+  }
+
+  /* ── Badges ── */
+  .badge-gold { background: rgba(67, 97, 238, 0.12); color: var(--primary); border: 1px solid rgba(67, 97, 238, 0.2); }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--primary), rgba(67, 97, 238, 0.3));
+    border-radius: 99px;
+  }
+}
+
+/* ── Animations ── */
+@keyframes bluePulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(67, 97, 238, 0.2); }
+  50%       { box-shadow: 0 0 20px rgba(67, 97, 238, 0.5); }
+}
+
+.animate-gold-pulse { animation: bluePulse 2s ease-in-out infinite; }
