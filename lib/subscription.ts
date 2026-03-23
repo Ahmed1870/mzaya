@@ -20,11 +20,11 @@ export async function getSubscriptionStatus() {
   let currentPlan: 'free' | 'pro' | 'business' = 'free'
   const dbPlanName = (profile?.plan_name || '').trim()
   const status = profile?.subscription_status || 'inactive'
+  
   const now = new Date()
   const endDate = profile?.end_subscription ? new Date(profile.end_subscription) : null
   const isExpired = endDate ? endDate < now : false
 
-  // التفعيل اللحظي بناءً على الحالة والمسمى العربي في سوبا بيز
   if (status === 'active' && !isExpired) {
     if (dbPlanName === 'احترافية' || dbPlanName.toLowerCase().includes('pro')) {
       currentPlan = 'pro'
@@ -33,7 +33,6 @@ export async function getSubscriptionStatus() {
     }
   }
 
-  // استثناء الأدمن
   if (profile?.role === 'admin') currentPlan = 'business'
 
   const config = PLAN_CONFIGS[currentPlan]

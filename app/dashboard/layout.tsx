@@ -17,10 +17,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect('/auth/login')
 
   const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-  const status = await getSubscriptionStatus()
-  
+  const subStatus = await getSubscriptionStatus()
   const isAdmin = profile?.role === 'admin' || user.email === 'xcm3108@gmail.com'
-  const canUseAI = status?.canUseAI || isAdmin
+  
+  const canUseAI = subStatus?.canUseAI || isAdmin
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#050505', fontFamily: "'IBM Plex Sans Arabic',sans-serif" }}>
