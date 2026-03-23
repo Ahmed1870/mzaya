@@ -21,6 +21,7 @@ export async function getSubscriptionStatus() {
   const dbPlan = (profile?.plan || '').trim().toLowerCase()
   const status = profile?.subscription_status || 'inactive'
 
+  // التفعيل لو الحالة active أو المستخدم admin
   if (status === 'active' || profile?.role === 'admin') {
     if (dbPlan.includes('احترافية') || dbPlan.includes('pro')) {
       currentPlan = 'pro'

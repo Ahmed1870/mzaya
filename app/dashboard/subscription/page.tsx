@@ -18,19 +18,16 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser) {
+        setUser(authUser)
         await refresh()
 
-        // التحديث اللحظي: لو الأدمن فعل الباقة، الصفحة تتحدث فوراً
-        const channel = supabase.channel(`profile-changes-${user.id}`)
+        // Realtime: التحديث اللحظي عند التفعيل من الأدمن
+        const channel = supabase.channel(`profile-sync-${authUser.id}`)
           .on('postgres_changes', 
-            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
-            () => { 
-              refresh()
-              Swal.fire({ title: 'تم التحديث! 🚀', text: 'تم تحديث حالة اشتراكك بنجاح', icon: 'success', timer: 2000, showConfirmButton: false, background: '#0a0a0a', color: '#d4af37' })
-            }
+            { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${authUser.id}` },
+            () => { refresh() }
           ).subscribe()
         return () => { supabase.removeChannel(channel) }
       }
@@ -38,38 +35,24 @@ export default function SubscriptionPage() {
     init()
   }, [])
 
-  const handleProcess = async (planName: string, price: number) => {
+  const handleProcess = async (pName: string, price: number) => {
     const { value: sender } = await Swal.fire({
       title: 'بيانات التحويل',
       input: 'text',
-      inputLabel: `باقة ${planName} - ${price} ج.م`,
-      inputPlaceholder: 'رقم المحفظة أو انستا باي',
+      inputLabel: `باقة ${pName} - ${price} ج.م`,
+      inputPlaceholder: 'رقم المحفظة',
       showCancelButton: true,
-      confirmButtonText: 'تأكيد الطلب',
       background: '#0a0a0a',
       color: '#d4af37',
       confirmButtonColor: '#d4af37',
     })
-
     if (!sender) return
-
     setLoading(true)
-    const { error } = await supabase.from('subscriptions_requests').insert([
-      { user_id: user.id, plan_name: planName, amount: price, sender_number: sender, status: 'pending' }
-    ])
-
+    const { error } = await supabase.from('subscriptions_requests').insert([{ user_id: user.id, plan_name: pName, amount: price, sender_number: sender, status: 'pending' }])
     if (!error) {
       setLoading(false)
-      Swal.fire({
-        title: 'تم تسجيل طلبك ✅',
-        text: 'سيتم تحويلك الآن لواتساب الإدارة لتأكيد الدفع',
-        icon: 'success',
-        background: '#0a0a0a',
-        color: '#fff',
-        confirmButtonColor: '#1ed760'
-      }).then(() => {
-        const msg = `طلب تفعيل باقة: ${planName}\nالتاجر: ${sender}\nID: ${user.id}`
-        window.open(`https://wa.me/201019672878?text=${encodeURIComponent(msg)}`, '_blank')
+      Swal.fire({ title: 'تم الطلب ✅', text: 'حول للواتساب الآن', icon: 'success', background: '#0a0a0a' }).then(() => {
+        window.open(`https://wa.me/201019672878?text=تفعيل باقة ${pName}`, '_blank')
       })
     }
   }
@@ -81,8 +64,7 @@ export default function SubscriptionPage() {
     </div>
   )
 
-  const cardStyle = { background: '#0a0a0a', padding: '50px 40px', borderRadius: '35px', width: '350px', textAlign: 'center' as const, position: 'relative' as const };
-  const btnStyle = { border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900' as const, cursor: 'pointer', fontSize: '16px' };
+  const cardStyle = { background: '#0a0a0a', padding: '50px 40px', borderRadius: '35px', width: '330px', textAlign: 'center' as const, position: 'relative' as const, border: '1px solid #1a1a1a' };
 
   return (
     <div style={{ background: '#050505', color: '#fff', minHeight: '100vh', padding: '40px 20px', direction: 'rtl' }}>
@@ -93,29 +75,23 @@ export default function SubscriptionPage() {
           باقتك الحالية: <span style={{ color: '#d4af37', fontWeight: '900' }}>{currentPlan}</span>
         </div>
       </div>
-
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center' }}>
-        <div style={{ ...cardStyle, border: currentPlan === 'الاحترافية' ? '2px solid #d4af37' : '1px solid #1a1a1a' }}>
+        <div style={{ ...cardStyle, borderColor: currentPlan === 'الاحترافية' ? '#d4af37' : '#1a1a1a' }}>
           <Zap size={50} color="#d4af37" style={{ marginBottom: '20px' }} />
-          <h2 style={{ fontSize: '26px' }}>الاحترافية</h2>
-          <div style={{ fontSize: '34px', margin: '20px 0', fontWeight: '900' }}>99 <small style={{ fontSize: '16px' }}>ج.م</small></div>
-          <div style={{ textAlign: 'right', marginBottom: '30px' }}>
-            <Feature text="إضافة منتجات غير محدودة" /><Feature text="رادار العملاء" />
-          </div>
-          <button onClick={() => handleProcess('احترافية', 99)} disabled={loading || currentPlan === 'الاحترافية'} style={{ ...btnStyle, background: 'linear-gradient(45deg, #d4af37, #fbf5b7)', opacity: currentPlan === 'الاحترافية' ? 0.5 : 1 }}>
-            {currentPlan === 'الاحترافية' ? 'نشطة حالياً' : 'اشترك الآن'}
+          <h2>الاحترافية</h2>
+          <div style={{ fontSize: '34px', margin: '20px 0', fontWeight: '900' }}>99 ج.م</div>
+          <Feature text="منتجات غير محدودة" /><Feature text="رادار العملاء" />
+          <button onClick={() => handleProcess('احترافية', 99)} disabled={loading || currentPlan === 'الاحترافية'} style={{ background: 'linear-gradient(45deg, #d4af37, #fbf5b7)', color: '#000', border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900', cursor: 'pointer', opacity: currentPlan === 'الاحترافية' ? 0.5 : 1 }}>
+            {currentPlan === 'الاحترافية' ? 'نشطة' : 'اشترك'}
           </button>
         </div>
-
-        <div style={{ ...cardStyle, border: currentPlan === 'البيزنس' ? '2px solid #1ed760' : '1px solid #1a1a1a' }}>
+        <div style={{ ...cardStyle, borderColor: currentPlan === 'البيزنس' ? '#1ed760' : '#1a1a1a' }}>
           <Crown size={50} color="#1ed760" style={{ marginBottom: '20px' }} />
-          <h2 style={{ fontSize: '26px' }}>البيزنس</h2>
-          <div style={{ fontSize: '34px', margin: '20px 0', fontWeight: '900', color: '#1ed760' }}>199 <small style={{ fontSize: '16px' }}>ج.م</small></div>
-          <div style={{ textAlign: 'right', marginBottom: '30px' }}>
-            <Feature text="كل مميزات الاحترافية" /><Feature text="ذكاء اصطناعي كامل" />
-          </div>
-          <button onClick={() => handleProcess('بيزنس', 199)} disabled={loading || currentPlan === 'البيزنس'} style={{ ...btnStyle, background: 'linear-gradient(45deg, #1ed760, #a2f9c1)', opacity: currentPlan === 'البيزنس' ? 0.5 : 1 }}>
-            {currentPlan === 'البيزنس' ? 'نشطة حالياً' : 'تطوير العضوية'}
+          <h2 style={{ color: '#1ed760' }}>البيزنس</h2>
+          <div style={{ fontSize: '34px', margin: '20px 0', fontWeight: '900' }}>199 ج.م</div>
+          <Feature text="كل الميزات + AI" /><Feature text="دومين خاص" />
+          <button onClick={() => handleProcess('بيزنس', 199)} disabled={loading || currentPlan === 'البيزنس'} style={{ background: 'linear-gradient(45deg, #1ed760, #a2f9c1)', color: '#000', border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900', cursor: 'pointer', opacity: currentPlan === 'البيزنس' ? 0.5 : 1 }}>
+            {currentPlan === 'البيزنس' ? 'نشطة' : 'تطوير العضوية'}
           </button>
         </div>
       </div>
