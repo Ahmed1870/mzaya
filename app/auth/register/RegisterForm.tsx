@@ -97,7 +97,7 @@ export default function RegisterForm() {
             </div>
 
             <motion.button 
-              whileHover={{ scale: 1.05, shadow: "0 0 30px rgba(212,175,55,0.4)" }}
+              whileHover={{ scale: 1.05, boxShadow: "0 0 30px rgba(212,175,55,0.4)" }}
               whileTap={{ scale: 0.95 }}
               disabled={loading}
               className="w-full bg-[#D4AF37] text-black py-6 rounded-[2rem] font-black text-2xl flex items-center justify-center gap-4 transition-all"
