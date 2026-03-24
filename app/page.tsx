@@ -1,7 +1,10 @@
 'use client'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
-import { Rocket, ShieldCheck, Zap, BarChart3, CheckCircle2, ArrowLeft, Star, MousePointer2 } from 'lucide-react'
+import { 
+  Rocket, ShieldCheck, Zap, BarChart3, CheckCircle2, 
+  ArrowLeft, Star, Mail, MessageCircle 
+} from 'lucide-react'
 
 export default function LandingPage() {
   const { scrollYProgress } = useScroll()
@@ -11,7 +14,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#020202] text-white selection:bg-[#D4AF37] selection:text-black font-['IBM_Plex_Sans_Arabic'] overflow-x-hidden" dir="rtl">
       
-      {/* خلفية النجوم المتحركة (CSS Animation) */}
+      {/* خلفية النجوم المتحركة */}
       <div className="fixed inset-0 z-0 opacity-30 pointer-events-none">
         <div className="stars-container"></div>
       </div>
@@ -39,7 +42,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero Section مع تأثير الـ Depth */}
+      {/* Hero Section */}
       <section className="relative pt-56 pb-32 px-6 flex flex-col items-center">
         <motion.div style={{ opacity, scale }} className="text-center z-10">
           <motion.div 
@@ -60,54 +63,20 @@ export default function LandingPage() {
             <span className="text-outline-gold hover:text-[#D4AF37] transition-all duration-700 cursor-default">من القوة</span>
           </motion.h1>
 
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-gray-400 text-xl md:text-3xl max-w-4xl mx-auto mb-16 font-light leading-relaxed"
-          >
+          <motion.p className="text-gray-400 text-xl md:text-3xl max-w-4xl mx-auto mb-16 font-light leading-relaxed">
             بنينا "مزايا" لنمنحك السيطرة الكاملة على إمبراطوريتك التجارية. <br/> فخامة التصميم تلتقي بذكاء الأرقام.
           </motion.p>
 
-          <motion.div 
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="flex justify-center gap-8"
-          >
-            <Link href="/auth/register" className="px-16 py-7 bg-white text-black rounded-3xl font-black text-2xl hover:bg-[#D4AF37] transition-all hover:shadow-[0_0_50px_rgba(212,175,55,0.4)] flex items-center gap-4">
+          <Link href="/auth/register" className="px-16 py-7 bg-white text-black rounded-3xl font-black text-2xl hover:bg-[#D4AF37] transition-all hover:shadow-[0_0_50px_rgba(212,175,55,0.4)] inline-flex items-center gap-4">
                انطلق الآن <Rocket size={24} />
-            </Link>
-          </motion.div>
-        </motion.div>
-
-        {/* كارت عرض تجريدي متحرك في الخلفية */}
-        <motion.div 
-          animate={{ y: [0, -20, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className="mt-24 w-full max-w-5xl h-[400px] rounded-[4rem] bg-gradient-to-b from-white/10 to-transparent border border-white/10 backdrop-blur-xl relative overflow-hidden"
-        >
-           <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10"></div>
-           <div className="p-12 flex justify-between items-start">
-              <div className="space-y-4">
-                <div className="w-48 h-6 bg-white/10 rounded-full animate-pulse"></div>
-                <div className="w-32 h-6 bg-white/5 rounded-full"></div>
-              </div>
-              <BarChart3 size={100} className="text-[#D4AF37] opacity-20" />
-           </div>
+          </Link>
         </motion.div>
       </section>
 
-      {/* باقات البيزنس والاحترافية (بدون تغيير الأسعار) */}
+      {/* Pricing Section */}
       <section className="py-32 px-6">
         <div className="grid md:grid-cols-2 gap-16 max-w-6xl mx-auto">
-           {/* Pro */}
-           <motion.div 
-             whileHover={{ scale: 1.02 }}
-             className="relative p-1 bg-[#080808] rounded-[4rem] overflow-hidden group"
-           >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#D4AF37]/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <div className="relative p-16 bg-[#080808] rounded-[4rem] h-full border border-white/5">
+           <div className="relative p-1 bg-[#080808] rounded-[4rem] border border-white/5 p-16">
                 <h3 className="text-2xl font-bold text-gray-500 mb-6 uppercase tracking-[5px]">Professional</h3>
                 <div className="text-7xl font-black mb-12">99 <span className="text-xl font-light opacity-40">EGP</span></div>
                 <ul className="space-y-6 mb-16">
@@ -116,18 +85,11 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <button className="w-full py-6 rounded-3xl border border-white/10 font-black text-xl hover:bg-white hover:text-black transition-all">اشتراك</button>
-              </div>
-           </motion.div>
+           </div>
 
-           {/* Business */}
-           <motion.div 
-             whileHover={{ scale: 1.05 }}
-             className="relative p-[2px] bg-gradient-to-br from-[#D4AF37] to-[#8A6D3B] rounded-[4rem] shadow-[0_40px_100px_rgba(212,175,55,0.15)]"
-           >
-              <div className="p-16 bg-[#D4AF37] text-black rounded-[4rem] h-full flex flex-col">
+           <div className="relative p-16 bg-[#D4AF37] text-black rounded-[4rem] shadow-[0_40px_100px_rgba(212,175,55,0.15)] flex flex-col">
                 <div className="flex justify-between items-start mb-6">
                    <h3 className="text-2xl font-black uppercase tracking-[5px]">Business</h3>
-                   <span className="bg-black text-[#D4AF37] px-4 py-1 rounded-full text-[10px] font-black uppercase">Most Powerful</span>
                 </div>
                 <div className="text-7xl font-black mb-12">199 <span className="text-xl font-black opacity-60">EGP</span></div>
                 <ul className="space-y-6 mb-16 flex-grow">
@@ -136,12 +98,11 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <button className="w-full py-6 rounded-3xl bg-black text-[#D4AF37] font-black text-xl hover:scale-95 transition-all">ابدأ الآن</button>
-              </div>
-           </motion.div>
+           </div>
         </div>
       </section>
 
-      {/* Footer مع بياناتك */}
+      {/* Footer مع الأيقونات اللي كانت ناقصة */}
       <footer className="py-32 px-6 border-t border-white/5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
            <div className="text-right">
@@ -149,30 +110,21 @@ export default function LandingPage() {
               <p className="text-gray-500 max-w-xs">أحمد - مطور منصة مزايا لإدارة الأعمال الذكية.</p>
            </div>
            <div className="flex gap-8">
-              <a href="mailto:xcm3108@gmail.com" className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center hover:bg-[#D4AF37] transition-all"><Mail size={32} /></a>
-              <a href="https://wa.me/201019672878" className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center hover:bg-[#25D366] transition-all"><MessageCircle size={32} /></a>
+              <a href="mailto:xcm3108@gmail.com" className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center hover:bg-[#D4AF37] transition-all transition-colors"><Mail size={32} /></a>
+              <a href="https://wa.me/201019672878" className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center hover:bg-[#25D366] transition-all transition-colors"><MessageCircle size={32} /></a>
            </div>
         </div>
       </footer>
 
       <style jsx global>{`
-        .text-outline-gold {
-          color: transparent;
-          -webkit-text-stroke: 1px #D4AF37;
-        }
+        .text-outline-gold { color: transparent; -webkit-text-stroke: 1px #D4AF37; }
         .stars-container {
           background-image: radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
-                            radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
-                            radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0));
-          background-repeat: repeat;
-          background-size: 200px 200px;
-          animation: stars-move 100s linear infinite;
-          width: 100%; height: 100%;
+                            radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0));
+          background-repeat: repeat; background-size: 200px 200px;
+          animation: stars-move 100s linear infinite; width: 100%; height: 100%;
         }
-        @keyframes stars-move {
-          from { background-position: 0 0; }
-          to { background-position: 1000px 1000px; }
-        }
+        @keyframes stars-move { from { background-position: 0 0; } to { background-position: 1000px 1000px; } }
       `}</style>
     </div>
   )
