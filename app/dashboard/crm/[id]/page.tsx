@@ -28,7 +28,7 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
         Swal.fire({
           title: 'دخول ممنوع! 🛑',
           text: 'تفاصيل العملاء متاحة فقط للمشتركين في الباقات الاحترافية والبيزنس.',
-          icon: 'lock',
+          icon: 'warning',
           confirmButtonText: 'ترقية الآن',
           confirmButtonColor: '#D4AF37',
           background: '#111',
