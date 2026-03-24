@@ -7,11 +7,11 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code')
 
   if (code) {
-    const supabase = createRouteHandlerClient({ cookies })
-    // تبادل الكود بالجلسة (Session)
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // التحويل التلقائي للداشبورد بعد النجاح
-  return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+  // العودة لصفحة الداشبورد بعد نجاح تسجيل الدخول/التأكيد
+  return NextResponse.redirect(new URL('/dashboard', request.url))
 }
