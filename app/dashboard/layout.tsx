@@ -69,7 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#050505', fontFamily: "'IBM Plex Sans Arabic',sans-serif" }}>
       <DashboardShell user={user} profile={profile} isAdmin={isAdmin}>
-        {canUseAI && <AIChat shopName={profile?.shop_name || 'مزايا'} />}
+        {canUseAI && <AIChat />}
         {children}
       </DashboardShell>
     </div>
