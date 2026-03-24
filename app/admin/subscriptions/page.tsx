@@ -86,7 +86,7 @@ export default function SuperAdminRadar() {
     const { isConfirmed } = await Swal.fire({
       title: 'تفعيل مكافأة الإحالة',
       html: `التاجر <b>${user.shop_name}</b> جاب <b>${user.referral_count}</b> إحالة.<br>ترقية إلى باقة: <b style="color:#d4af37">${nextPlan}</b>؟`,
-      icon: 'star',
+      icon: 'success',
       showCancelButton: true,
       confirmButtonText: 'تفعيل المكافأة الآن',
       background: '#050505',
