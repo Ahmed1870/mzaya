@@ -1,18 +1,16 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
-import { ShoppingCart, Plus, Minus, MessageCircle, CheckCircle2, MapPin, Phone, User, X, ShoppingBag, Sparkles } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, MessageCircle, CheckCircle2, MapPin, Phone, User, X, Sparkles, Rocket, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Swal from 'sweetalert2'
 import confetti from 'canvas-confetti'
 
-interface CartItem { product: any; quantity: number }
-
 export function StoreClient({ profile, products: initialProducts }: { profile: any; products: any[] }) {
   const supabase = createClient()
   const [products, setProducts] = useState(initialProducts)
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [cart, setCart] = useState<any[]>([])
   const [showCart, setShowCart] = useState(false)
   const [showOrder, setShowOrder] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -21,216 +19,163 @@ export function StoreClient({ profile, products: initialProducts }: { profile: a
 
   const shopName = profile.shop_name || 'متجر مزايا'
 
+  // الربط اللحظي للمخزن
   useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products', filter: `user_id=eq.${profile.id}` }, 
-      (payload) => {
-        setProducts(prev => prev.map(p => p.id === payload.new.id ? { ...p, stock: payload.new.stock } : p))
-      })
-      .subscribe()
+    const channel = supabase.channel('store-sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products' }, (p) => {
+        setProducts(prev => prev.map(item => item.id === p.new.id ? { ...item, stock: p.new.stock } : item))
+      }).subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [profile.id])
+  }, [])
 
   const addToCart = (product: any) => {
-    const currentProduct = products.find(p => p.id === product.id)
-    const inCart = cart.find(i => i.product.id === product.id)
-    const currentQty = inCart ? inCart.quantity : 0
-
-    if (!currentProduct || currentProduct.stock <= currentQty) {
-      Swal.fire({ 
-        icon: 'warning', 
-        title: 'عذراً.. عجز في المخزن', 
-        text: `المتاح حالياً ${currentProduct?.stock || 0} قطع فقط!`, 
-        background: '#111', color: '#fff', confirmButtonColor: '#D4AF37' 
-      })
-      return
+    const inCart = cart.find(i => i.id === product.id)
+    if (product.stock <= (inCart?.quantity || 0)) {
+        Swal.fire({ 
+            title: 'المخزن الفضائي نفذ!', 
+            text: `متاح ${product.stock} قطع فقط`, 
+            icon: 'warning', background: '#0a0a0a', color: '#D4AF37', confirmButtonColor: '#D4AF37' 
+        })
+        return
     }
-
-    setCart(prev => {
-      if (inCart) return prev.map(i => i.product.id === product.id ? {...i, quantity: i.quantity+1} : i)
-      return [...prev, { product: currentProduct, quantity: 1 }]
-    })
-    confetti({ particleCount: 30, spread: 40, origin: { y: 0.9 }, colors: ['#D4AF37', '#ffffff'] })
+    setCart(prev => inCart ? prev.map(i => i.id === product.id ? {...i, quantity: i.quantity+1} : i) : [...prev, {...product, quantity: 1}])
+    confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 }, colors: ['#D4AF37'] })
   }
 
-  const updateQty = (id: string, qty: number) => {
-    if (qty <= 0) {
-      setCart(prev => prev.filter(i => i.product.id !== id))
-      return
-    }
-
-    const p = products.find(prod => prod.id === id)
-    if (p && qty > p.stock) {
-      Swal.fire({ 
-        toast: true, 
-        position: 'top-end', 
-        timer: 3000, 
-        title: `لا توجد كمية كافية (المتاح: ${p.stock})`, 
-        icon: 'error', 
-        showConfirmButton: false,
-        background: '#111',
-        color: '#fff'
-      })
-      return
-    }
-    setCart(prev => prev.map(i => i.product.id === id ? {...i, quantity: qty} : i))
-  }
-
-  const total = cart.reduce((s, i) => s + (i.product.price * i.quantity), 0)
-  const count = cart.reduce((s, i) => s + i.quantity, 0)
-
-  const handleOrder = async () => {
-    if (!customer.name || !customer.phone) {
-      Swal.fire({ icon: 'warning', title: 'بيانات ناقصة', text: 'من فضلك أكمل بياناتك لنصل إليك!', background: '#111', color: '#fff' })
-      return
-    }
+  const handleFinalOrder = async () => {
+    if (!customer.name || !customer.phone) return Swal.fire({ title: 'بياناتك ناقصة!', icon: 'error', background: '#0a0a0a', color: '#fff' })
     setLoading(true)
-
+    
     try {
-      const { data: orderData, error: orderError } = await supabase.from('invoices').insert([{
-        user_id: profile.id,
-        customer_name: customer.name,
-        customer_phone: customer.phone,
-        customer_address: customer.address,
-        total_amount: total,
-        status: 'pending'
-      }]).select().single()
+        // نداء الـ Database Function الأخطبوطية
+        const { error } = await supabase.rpc('create_complete_order', {
+            p_user_id: profile.id,
+            p_customer_name: customer.name,
+            p_customer_phone: customer.phone,
+            p_customer_address: customer.address,
+            p_total_amount: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+            p_items: cart.map(i => ({ product_id: i.id, product_name: i.name, unit_price: i.price, quantity: i.quantity }))
+        })
 
-      if (orderError) throw orderError
+        if (error) throw error
 
-      for (const item of cart) {
-        await supabase.from('invoice_items').insert([{
-          invoice_id: orderData.id,
-          product_id: item.product.id,
-          quantity: item.quantity,
-          unit_price: item.product.price,
-          total_price: item.product.price * item.quantity
-        }])
-        
-        await supabase.from('products').update({ 
-          stock: Math.max(0, (item.product.stock || 0) - item.quantity) 
-        }).eq('id', item.product.id)
-      }
-
-      await supabase.from('notifications').insert([{
-        user_id: profile.id,
-        title: '📦 أوردر جديد!',
-        message: `العميل ${customer.name} طلب منتجات بقيمة ${total} ج.م`,
-        type: 'order'
-      }])
-
-      const itemsMsg = cart.map(i => `• ${i.product.name} (×${i.quantity})`).join('\n')
-      const msg = `🚀 *طلب جديد من متجر ${shopName}*\n\n👤 *العميل:* ${customer.name}\n📞 *الهاتف:* ${customer.phone}\n📍 *العنوان:* ${customer.address}\n\n📦 *الطلبات:*\n${itemsMsg}\n\n💰 *الإجمالي:* ${formatPrice(total)}`
-      
-      confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } })
-      setOrdered(true)
-      window.open(`https://wa.me/${profile.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank')
-    } catch (err) {
-      Swal.fire({ icon: 'error', title: 'فشل الإرسال', text: 'حاول مرة أخرى لاحقاً' })
-    } finally {
-      setLoading(false)
-    }
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.5 } })
+        setOrdered(true)
+        const msg = `🚀 طلب جديد من: ${customer.name}\n📦 المنتجات:\n${cart.map(i => `- ${i.name} (${i.quantity})`).join('\n')}\n💰 الإجمالي: ${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}`
+        window.open(`https://wa.me/${profile.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`)
+    } catch (err: any) {
+        Swal.fire({ title: 'خطأ في الربط', text: err.message, icon: 'error' })
+    } finally { setLoading(false) }
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white" dir="rtl" style={{fontFamily:"'IBM Plex Sans Arabic', sans-serif"}}>
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/60 border-b border-white/5">
-        <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#D4AF37] flex items-center justify-center text-black shadow-[0_0_15px_rgba(212,175,55,0.3)]">
-              <ShoppingBag size={20} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold">{shopName}</h1>
-              <span className="text-[10px] text-[#D4AF37] uppercase font-bold tracking-widest">مزايا لاكجري</span>
-            </div>
-          </div>
-          <button onClick={() => setShowCart(true)} className="relative p-2 bg-white/5 rounded-xl border border-white/10">
-            <ShoppingCart size={20} className="text-[#D4AF37]" />
-            {count > 0 && <span className="absolute -top-1 -left-1 w-5 h-5 bg-red-600 text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-black">{count}</span>}
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden selection:bg-[#D4AF37]/30" dir="rtl">
+      <style>{`
+        @keyframes orbit { from { transform: rotate(0deg) translateX(100px) rotate(0deg); } to { transform: rotate(360deg) translateX(100px) rotate(-360deg); } }
+        .nebula { position: fixed; top: 50%; left: 50%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%); filter: blur(60px); z-index: 0; pointer-events: none; }
+      `}</style>
+      
+      <div className="nebula" style={{ animation: 'orbit 20s linear infinite' }} />
 
-      <main className="max-w-2xl mx-auto px-6 py-8 pb-32">
-        <div className="grid grid-cols-2 gap-4">
-          {products.map((product) => (
-            <motion.div layout key={product.id} className="bg-white/5 border border-white/5 rounded-[1.5rem] overflow-hidden group">
-              <div className="aspect-square relative bg-white/5">
-                {product.image_url ? <img src={product.image_url} className="w-full h-full object-cover" alt=""/> : <div className="w-full h-full flex items-center justify-center opacity-20">📦</div>}
-                {product.stock <= 0 && <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center text-[10px] font-bold text-red-500 uppercase tracking-tighter">نفذت الكمية</div>}
-              </div>
-              <div className="p-4">
-                <h3 className="text-xs font-bold text-gray-300 line-clamp-1 mb-2">{product.name}</h3>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-black text-[#D4AF37]">{formatPrice(product.price)}</span>
-                  <button onClick={() => addToCart(product)} disabled={product.stock <= 0} className="w-8 h-8 bg-white text-black rounded-lg flex items-center justify-center hover:bg-[#D4AF37] transition-colors"><Plus size={16}/></button>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+      {/* Header الفضائي */}
+      <motion.header initial={{ y: -100 }} animate={{ y: 0 }} className="sticky top-0 z-[60] backdrop-blur-2xl bg-black/40 border-b border-white/5 p-4">
+        <div className="max-w-2xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+             <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 1 }} className="w-10 h-10 bg-[#D4AF37] rounded-full flex items-center justify-center text-black shadow-[0_0_20px_#D4AF37]">
+                <Rocket size={20} />
+             </motion.div>
+             <h1 className="text-xl font-black tracking-tighter">{shopName}</h1>
+          </div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowCart(true)} className="p-3 bg-white/5 rounded-2xl relative">
+             <ShoppingCart className="text-[#D4AF37]" />
+             {cart.length > 0 && <span className="absolute -top-1 -left-1 bg-red-500 w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold border-2 border-black">{cart.length}</span>}
+          </motion.button>
         </div>
+      </motion.header>
+
+      {/* المنتجات كأنها طائرة في الفضاء */}
+      <main className="max-w-2xl mx-auto p-6 grid grid-cols-2 gap-6 relative z-10">
+        {products.map((p, idx) => (
+          <motion.div 
+            key={p.id}
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -10 }}
+            className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-4 group relative overflow-hidden backdrop-blur-md"
+          >
+            <div className="aspect-square rounded-[2rem] overflow-hidden mb-4 bg-black/40">
+              <img src={p.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+            </div>
+            <h3 className="font-bold text-sm mb-2 line-clamp-1 opacity-80">{p.name}</h3>
+            <div className="flex justify-between items-center">
+               <span className="text-[#D4AF37] font-black">{formatPrice(p.price)}</span>
+               <motion.button 
+                whileHover={{ scale: 1.2, backgroundColor: '#D4AF37', color: '#000' }}
+                onClick={() => addToCart(p)}
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center transition-all"
+               >
+                 <Plus size={18} />
+               </motion.button>
+            </div>
+          </motion.div>
+        ))}
       </main>
 
-      <AnimatePresence>
-        {showCart && (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowCart(false)}/>
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="relative w-full max-w-2xl bg-[#0f0f0f] border-t border-white/10 rounded-t-[2.5rem] p-8 max-h-[80vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-black flex items-center gap-2">السلة <Sparkles size={18} className="text-[#D4AF37]"/></h2>
-                <X onClick={() => setShowCart(false)} className="text-gray-500" />
-              </div>
-              {cart.length === 0 ? <div className="text-center py-10 opacity-30">السلة فارغة</div> : (
-                <div className="space-y-4">
-                  {cart.map(({product, quantity}) => (
-                    <div key={product.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-                      <div className="flex-1 font-bold text-sm">{product.name}</div>
-                      <div className="flex items-center gap-3 bg-black rounded-xl p-1 border border-white/10">
-                        <Minus size={14} className="text-red-500 cursor-pointer" onClick={() => updateQty(product.id, quantity - 1)} />
-                        <span className="font-black text-sm">{quantity}</span>
-                        <Plus size={14} className="text-green-500 cursor-pointer" onClick={() => updateQty(product.id, quantity + 1)} />
-                      </div>
-                    </div>
-                  ))}
-                  <div className="p-5 bg-[#D4AF37] rounded-2xl flex justify-between items-center text-black font-black mt-6">
-                    <span>الإجمالي</span>
-                    <span>{formatPrice(total)}</span>
-                  </div>
-                  <button onClick={() => {setShowCart(false); setShowOrder(true)}} className="w-full py-4 bg-white text-black rounded-2xl font-black mt-2 shadow-xl">تأكيد البيانات</button>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
+      {/* فورم البيانات - التركيز على الكيبورد وجمال الإدخال */}
       <AnimatePresence>
         {showOrder && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center px-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/90 backdrop-blur-md" onClick={() => setShowOrder(false)}/>
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative w-full max-w-md bg-white/[0.05] border border-white/10 p-8 rounded-[2rem]">
-              <h3 className="text-center font-black text-lg mb-6">بيانات التوصيل 🚚</h3>
-              <div className="space-y-4">
-                <input placeholder="الاسم" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-[#D4AF37]" value={customer.name} onChange={e=>setCustomer({...customer, name:e.target.value})}/>
-                <input placeholder="رقم الموبايل" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-[#D4AF37]" value={customer.phone} onChange={e=>setCustomer({...customer, phone:e.target.value})}/>
-                <input placeholder="العنوان" className="w-full bg-white/5 border border-white/10 p-4 rounded-xl outline-none focus:border-[#D4AF37]" value={customer.address} onChange={e=>setCustomer({...customer, address:e.target.value})}/>
-                <button disabled={loading} onClick={handleOrder} className="w-full py-4 bg-[#D4AF37] text-black rounded-xl font-black mt-4 flex items-center justify-center gap-2">
-                  <MessageCircle size={18}/> تأكيد (واتساب)
-                </button>
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ y: 50, scale: 0.9 }} animate={{ y: 0, scale: 1 }}
+              className="w-full max-w-md bg-white/[0.02] border border-[#D4AF37]/20 p-8 rounded-[3rem] shadow-[0_0_50px_rgba(212,175,55,0.1)]"
+            >
+              <h2 className="text-2xl font-black mb-8 text-center flex items-center justify-center gap-3">
+                <Sparkles className="text-[#D4AF37]" /> بوابتك للفضاء
+              </h2>
+              <div className="space-y-6">
+                {[
+                  { id: 'name', icon: User, label: 'اسمك بالكامل', val: customer.name },
+                  { id: 'phone', icon: Phone, label: 'رقم الموبايل', val: customer.phone },
+                  { id: 'address', icon: MapPin, label: 'عنوان التوصيل', val: customer.address }
+                ].map((input) => (
+                  <div key={input.id} className="relative group">
+                    <input 
+                      type="text" required
+                      className="w-full bg-white/5 border-b-2 border-white/10 p-4 pr-12 outline-none focus:border-[#D4AF37] focus:bg-white/[0.02] transition-all rounded-t-2xl text-lg font-bold"
+                      placeholder={input.label}
+                      value={input.val}
+                      onChange={e => setCustomer({...customer, [input.id]: e.target.value})}
+                    />
+                    <input.icon className="absolute right-4 top-4 text-white/20 group-focus-within:text-[#D4AF37] transition-colors" size={20} />
+                  </div>
+                ))}
+                <motion.button 
+                  disabled={loading}
+                  onClick={handleFinalOrder}
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  className="w-full py-5 bg-[#D4AF37] text-black rounded-2xl font-black text-xl shadow-[0_10px_30px_rgba(212,175,55,0.3)] flex items-center justify-center gap-3"
+                >
+                  {loading ? 'يتم الإطلاق...' : <><MessageCircle /> تأكيد الطلب الفضائي</>}
+                </motion.button>
               </div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      {count > 0 && !showCart && !showOrder && (
-        <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-6 inset-x-0 flex justify-center px-6 z-[90]">
-          <button onClick={() => setShowCart(true)} className="w-full max-w-md bg-white text-black h-14 rounded-xl flex items-center justify-between px-6 shadow-2xl">
-            <span className="font-black text-sm">عرض السلة ({count})</span>
-            <span className="font-black">{formatPrice(total)}</span>
-          </button>
+      {/* شريط السلة العائم */}
+      {cart.length > 0 && !showOrder && (
+        <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-8 inset-x-0 z-[50] flex justify-center px-6">
+           <button onClick={() => setShowOrder(true)} className="w-full max-w-lg bg-white text-black h-16 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl group">
+              <div className="flex items-center gap-3 font-black text-lg">
+                <ChevronRight className="group-hover:translate-x-[-5px] transition-transform" /> استكمال الطلب ({cart.length})
+              </div>
+              <span className="font-black text-xl">{formatPrice(cart.reduce((s,i)=>s+(i.price*i.quantity),0))}</span>
+           </button>
         </motion.div>
       )}
     </div>
