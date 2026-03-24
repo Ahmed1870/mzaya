@@ -45,11 +45,10 @@ export default function NewProductPage() {
     e.preventDefault()
     if (saving) return
 
-    // حارس الباقة الذكي
     if (!userStats.isPremium && userStats.count >= userStats.maxLimit) {
       return Swal.fire({
         title: 'وصلت للحد الأقصى! 🛑',
-        text: `باقة "${userStats.plan}" تسمح بـ ${userStats.maxLimit} منتجات فقط. رقي حسابك لإضافة عدد غير محدود.`,
+        text: `باقة "${userStats.plan}" تسمح بـ ${userStats.maxLimit} منتجات فقط.`,
         icon: 'warning',
         showCancelButton: true,
         confirmButtonText: 'ترقية الباقة 💎',
@@ -83,7 +82,7 @@ export default function NewProductPage() {
   }
 
   return (
-    <div style={{ color: 'white', padding: '1.2rem', maxWidth: '500px', margin: '0 auto' }}>
+    <div style={{ color: 'white', padding: '1.2rem', maxWidth: '500px', margin: '0 auto', direction: 'rtl' }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', alignItems:'center' }}>
         <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
            <button onClick={() => router.back()} style={{ background: '#111', border: '1px solid #222', color: '#666', padding: '10px', borderRadius: '15px' }}><ArrowRight size={22} /></button>
@@ -106,13 +105,17 @@ export default function NewProductPage() {
         </div>
         <div style={{ background: '#111', padding: '1.5rem', borderRadius: '2rem', border: '1px solid #222', display: 'grid', gap: '1rem' }}>
           <input placeholder="اسم المنتج" style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '1rem', borderRadius: '15px', color: '#fff', outline:'none' }} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 12px'}}>
-              <label style={{fontSize:'0.6rem', color:'#444'}}>السعر</label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 10px'}}>
+              <label style={{fontSize:'0.55rem', color:'#444'}}>البيع</label>
               <input type="number" style={{ width: '100%', background: 'transparent', border: 'none', color: '#D4AF37', fontWeight:900, outline:'none' }} value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
             </div>
-            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 12px'}}>
-              <label style={{fontSize:'0.6rem', color:'#444'}}>الكمية</label>
+            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 10px'}}>
+              <label style={{fontSize:'0.55rem', color:'#444'}}>التكلفة</label>
+              <input type="number" style={{ width: '100%', background: 'transparent', border: 'none', color: '#e74c3c', fontWeight:900, outline:'none' }} value={form.cost} onChange={e => setForm({ ...form, cost: e.target.value })} />
+            </div>
+            <div style={{background:'#050505', borderRadius:'15px', border:'1px solid #222', padding:'5px 10px'}}>
+              <label style={{fontSize:'0.55rem', color:'#444'}}>الكمية</label>
               <input type="number" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', outline:'none' }} value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} />
             </div>
           </div>
