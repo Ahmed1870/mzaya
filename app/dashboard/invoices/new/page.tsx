@@ -18,7 +18,7 @@ export default function NewInvoicePage() {
 
   useEffect(() => {
     const load = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
       if (user) {
         const [{ data: prds }, { data: prof }] = await Promise.all([
           supabase.from('products').select('*').eq('user_id', user.id).eq('is_active', true).gt('stock', 0),
@@ -46,7 +46,7 @@ export default function NewInvoicePage() {
     if (!customer.name || items.length === 0) return
     setSaving(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
       const { data: inv, error: e } = await supabase.from('invoices').insert({
         user_id: user.id,
         customer_name: customer.name,
