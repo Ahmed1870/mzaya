@@ -1,184 +1,184 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
-import { ShoppingCart, Plus, Minus, Trash2, MessageCircle, X, CheckCircle2, MapPin, Phone, User } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, MessageCircle, CheckCircle2, MapPin, Phone, User, X, Sparkles, Rocket, ChevronRight } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import Swal from 'sweetalert2'
+import confetti from 'canvas-confetti'
 
-interface CartItem { product: any; quantity: number }
-
-export function StoreClient({ profile, products }: { profile: any; products: any[] }) {
+export function StoreClient({ profile, products: initialProducts }: { profile: any; products: any[] }) {
   const supabase = createClient()
-  const [cart, setCart] = useState<CartItem[]>([])
+  const [products, setProducts] = useState(initialProducts)
+  const [cart, setCart] = useState<any[]>([])
   const [showCart, setShowCart] = useState(false)
   const [showOrder, setShowOrder] = useState(false)
   const [loading, setLoading] = useState(false)
   const [customer, setCustomer] = useState({ name:'', phone:'', address:'' })
   const [ordered, setOrdered] = useState(false)
 
-  // توحيد مسمى المتجر من الإعدادات الجديدة
-  const shopName = profile.business_name || profile.shop_name || 'متجر مزايا'
+  const shopName = profile.shop_name || 'متجر مزايا'
+
+  // الربط اللحظي للمخزن
+  useEffect(() => {
+    const channel = supabase.channel('store-sync')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products' }, (p) => {
+        setProducts(prev => prev.map(item => item.id === p.new.id ? { ...item, stock: p.new.stock } : item))
+      }).subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [])
 
   const addToCart = (product: any) => {
-    setCart(prev => {
-      const ex = prev.find(i => i.product.id === product.id)
-      if (ex) return prev.map(i => i.product.id === product.id ? {...i, quantity: i.quantity+1} : i)
-      return [...prev, { product, quantity: 1 }]
-    })
-  }
-
-  const updateQty = (id: string, qty: number) => {
-    if (qty <= 0) setCart(prev => prev.filter(i => i.product.id !== id))
-    else setCart(prev => prev.map(i => i.product.id === id ? {...i, quantity: qty} : i))
-  }
-
-  const total = cart.reduce((s, i) => s + (i.product.price * i.quantity), 0)
-  const count = cart.reduce((s, i) => s + i.quantity, 0)
-
-  const handleOrder = async () => {
-    if (!customer.name || !customer.phone) return
-    setLoading(true)
-
-    try {
-      // 1. تسجيل الطلب في قاعدة البيانات (لربط الداشبورد)
-      const { data: orderData, error: orderError } = await supabase.from('orders').insert([{
-        user_id: profile.id,
-        customer_name: customer.name,
-        customer_phone: customer.phone,
-        customer_address: customer.address,
-        total_amount: total,
-        status: 'pending',
-        items: cart.map(i => ({
-          product_id: i.product.id,
-          name: i.product.name,
-          quantity: i.quantity,
-          price: i.product.price
-        }))
-      }]).select().single()
-
-      if (orderError) throw orderError
-
-      // 2. تجهيز رسالة الواتساب
-      const itemsMsg = cart.map(i => `• ${i.product.name} [${i.quantity} قطعة]`).join('\n')
-      const msg = `🛍️ *طلب جديد من متجر: ${shopName}*\n\n👤 *العميل:* ${customer.name}\n📞 *الهاتف:* ${customer.phone}\n📍 *العنوان:* ${customer.address || 'لم يحدد'}\n\n📦 *الطلبات:*\n${itemsMsg}\n\n💰 *الإجمالي:* ${formatPrice(total)}\n\n📌 *رقم الطلب:* #${orderData.id.split('-')[0]}\n✅ *تم الطلب عبر منصة مزايا*`
-      
-      const phone = (profile.phone || '').replace(/\D/g, '')
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank')
-
-      setOrdered(true)
-      setCart([])
-      setShowOrder(false)
-    } catch (err) {
-      alert('حدث خطأ أثناء تسجيل الطلب، يرجى المحاولة مرة أخرى.')
-    } finally {
-      setLoading(false)
+    const inCart = cart.find(i => i.id === product.id)
+    if (product.stock <= (inCart?.quantity || 0)) {
+        Swal.fire({ 
+            title: 'المخزن الفضائي نفذ!', 
+            text: `متاح ${product.stock} قطع فقط`, 
+            icon: 'warning', background: '#0a0a0a', color: '#D4AF37', confirmButtonColor: '#D4AF37' 
+        })
+        return
     }
+    setCart(prev => inCart ? prev.map(i => i.id === product.id ? {...i, quantity: i.quantity+1} : i) : [...prev, {...product, quantity: 1}])
+    confetti({ particleCount: 20, spread: 30, origin: { y: 0.8 }, colors: ['#D4AF37'] })
+  }
+
+  const handleFinalOrder = async () => {
+    if (!customer.name || !customer.phone) return Swal.fire({ title: 'بياناتك ناقصة!', icon: 'error', background: '#0a0a0a', color: '#fff' })
+    setLoading(true)
+    
+    try {
+        // نداء الـ Database Function الأخطبوطية
+        const { error } = await supabase.from('invoices').insert({
+            user_id: profile.id,
+            customer_name: customer.name,
+            customer_phone: customer.phone,
+            customer_address: customer.address,
+        source: 'online_store',
+        order_status: 'pending',
+            total_amount: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+        status: 'pending',
+            p_items: cart.map(i => ({ product_id: i.id, product_name: i.name, unit_price: i.price, quantity: i.quantity }))
+        })
+        if (error) throw error
+
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.5 } })
+        setOrdered(true)
+        const msg = `🚀 طلب جديد من: ${customer.name}\n📦 المنتجات:\n${cart.map(i => `- ${i.name} (${i.quantity})`).join('\n')}\n💰 الإجمالي: ${cart.reduce((s, i) => s + (i.price * i.quantity), 0)}`
+        window.open(`https://wa.me/${profile.phone?.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`)
+    } catch (err: any) {
+        Swal.fire({ title: 'خطأ في الربط', text: err.message, icon: 'error' })
+    } finally { setLoading(false) }
   }
 
   return (
-    <div style={{fontFamily:"'IBM Plex Sans Arabic',sans-serif", background:'#f8fafc', minHeight:'100vh', direction:'rtl'}}>
-      <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden selection:bg-[#D4AF37]/30" dir="rtl">
+      <style>{`
+        @keyframes orbit { from { transform: rotate(0deg) translateX(100px) rotate(0deg); } to { transform: rotate(360deg) translateX(100px) rotate(-360deg); } }
+        .nebula { position: fixed; top: 50%; left: 50%; width: 400px; height: 400px; background: radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%); filter: blur(60px); z-index: 0; pointer-events: none; }
+      `}</style>
       
-      <header style={{background:'white', borderBottom:'1px solid #e2e8f0', position:'sticky', top:0, zIndex:50}}>
-        <div style={{maxWidth:640, margin:'0 auto', padding:'.85rem 1rem', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-          <div style={{display:'flex', alignItems:'center', gap:'.75rem'}}>
-            <div style={{width:40, height:40, borderRadius:'50%', background:'linear-gradient(135deg,#D4AF37,#c9a227)', display:'flex', alignItems:'center', justifyContent:'center', color:'#020202', fontWeight:900}}>
-              {shopName[0]}
-            </div>
-            <div>
-              <div style={{fontWeight:700, fontSize:'1rem'}}>{shopName}</div>
-              <div style={{fontSize:'.72rem', color:'#64748b'}}>{products.length} منتج متوفر</div>
-            </div>
-          </div>
-          <button onClick={() => setShowCart(true)} style={{position:'relative', background:'#D4AF37', border:'none', borderRadius:'50%', width:44, height:44, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
-            <ShoppingCart size={20} color="#020202"/>
-            {count > 0 && <span style={{position:'absolute', top:-4, left:-4, background:'#e74c3c', color:'white', borderRadius:'50%', width:20, height:20, fontSize:'.68rem', display:'flex', alignItems:'center', justifyContent:'center'}}>{count}</span>}
-          </button>
-        </div>
-      </header>
+      <div className="nebula" style={{ animation: 'orbit 20s linear infinite' }} />
 
-      <main style={{maxWidth:640, margin:'0 auto', padding:'1rem'}}>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:'1rem'}}>
-          {products.map(product => (
-            <div key={product.id} style={{background:'white', borderRadius:'1.2rem', overflow:'hidden', border:'1px solid #e2e8f0', boxShadow:'0 2px 4px rgba(0,0,0,0.02)'}}>
-              <div style={{aspectRatio:'1', background:'#f1f5f9', position:'relative'}}>
-                {product.image_url ? 
-                  <img src={product.image_url} alt={product.name} style={{width:'100%', height:'100%', objectFit:'cover'}}/> : 
-                  <div style={{height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem'}}>📦</div>
-                }
-              </div>
-              <div style={{padding:'.75rem'}}>
-                <div style={{fontWeight:600, fontSize:'.85rem', marginBottom:'.5rem', height:'2.4rem', overflow:'hidden'}}>{product.name}</div>
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-                  <div style={{fontWeight:800, color:'#D4AF37', fontSize:'0.9rem'}}>{formatPrice(product.price)}</div>
-                  <button onClick={() => addToCart(product)} style={{background:'#D4AF37', border:'none', borderRadius:'.6rem', width:32, height:32, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <Plus size={16} color="#020202"/>
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Header الفضائي */}
+      <motion.header initial={{ y: -100 }} animate={{ y: 0 }} className="sticky top-0 z-[60] backdrop-blur-2xl bg-black/40 border-b border-white/5 p-4">
+        <div className="max-w-2xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+             <motion.div whileHover={{ rotate: 360 }} transition={{ duration: 1 }} className="w-10 h-10 bg-[#D4AF37] rounded-full flex items-center justify-center text-black shadow-[0_0_20px_#D4AF37]">
+                <Rocket size={20} />
+             </motion.div>
+             <h1 className="text-xl font-black tracking-tighter">{shopName}</h1>
+          </div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowCart(true)} className="p-3 bg-white/5 rounded-2xl relative">
+             <ShoppingCart className="text-[#D4AF37]" />
+             {cart.length > 0 && <span className="absolute -top-1 -left-1 bg-red-500 w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold border-2 border-black">{cart.length}</span>}
+          </motion.button>
         </div>
+      </motion.header>
+
+      {/* المنتجات كأنها طائرة في الفضاء */}
+      <main className="max-w-2xl mx-auto p-6 grid grid-cols-2 gap-6 relative z-10">
+        {products.map((p, idx) => (
+          <motion.div 
+            key={p.id}
+            initial={{ opacity: 0, scale: 0.8 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            whileHover={{ y: -10 }}
+            className="bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-4 group relative overflow-hidden backdrop-blur-md"
+          >
+            <div className="aspect-square rounded-[2rem] overflow-hidden mb-4 bg-black/40">
+              <img src={p.image_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+            </div>
+            <h3 className="font-bold text-sm mb-2 line-clamp-1 opacity-80">{p.name}</h3>
+            <div className="flex justify-between items-center">
+               <span className="text-[#D4AF37] font-black">{formatPrice(p.price)}</span>
+               <motion.button 
+                whileHover={{ scale: 1.2, backgroundColor: '#D4AF37', color: '#000' }}
+                onClick={() => addToCart(p)}
+                className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center transition-all"
+               >
+                 <Plus size={18} />
+               </motion.button>
+            </div>
+          </motion.div>
+        ))}
       </main>
 
-      {/* Cart Modal */}
-      {showCart && (
-        <div style={{position:'fixed', inset:0, zIndex:100, display:'flex', alignItems:'flex-end'}}>
-          <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,.6)', backdropFilter:'blur(4px)'}} onClick={() => setShowCart(false)}/>
-          <div style={{position:'relative', width:'100%', maxWidth:640, margin:'0 auto', background:'white', borderRadius:'2rem 2rem 0 0', padding:'1.5rem', maxHeight:'85vh', overflowY:'auto'}}>
-            <div style={{width:40, height:4, background:'#e2e8f0', borderRadius:2, margin:'0 auto 1.5rem'}} />
-            <h3 style={{fontWeight:800, fontSize:'1.2rem', marginBottom:'1.5rem', textAlign:'center'}}>سلة المشتريات 🛒</h3>
-            
-            {cart.length === 0 ? (
-              <div style={{textAlign:'center', padding:'3rem 0', color:'#64748b'}}>السلة فارغة، ابدأ بالتسوق!</div>
-            ) : (
-              <>
-                {cart.map(({product, quantity}) => (
-                  <div key={product.id} style={{display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1rem', padding:'1rem', background:'#f8fafc', borderRadius:'1rem', border:'1px solid #f1f5f9'}}>
-                    <div style={{flex:1, fontWeight:600, fontSize:'0.9rem'}}>{product.name}</div>
-                    <div style={{display:'flex', alignItems:'center', gap:'0.8rem', background:'white', padding:'5px 12px', borderRadius:'99px', border:'1px solid #e2e8f0'}}>
-                      <button onClick={() => updateQty(product.id, quantity-1)} style={{border:'none', background:'none', color:'#e74c3c', fontWeight:900}}><Minus size={14}/></button>
-                      <span style={{fontWeight:700, minWidth:20, textAlign:'center'}}>{quantity}</span>
-                      <button onClick={() => updateQty(product.id, quantity+1)} style={{border:'none', background:'none', color:'#2ecc71', fontWeight:900}}><Plus size={14}/></button>
-                    </div>
+      {/* فورم البيانات - التركيز على الكيبورد وجمال الإدخال */}
+      <AnimatePresence>
+        {showOrder && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-3xl flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ y: 50, scale: 0.9 }} animate={{ y: 0, scale: 1 }}
+              className="w-full max-w-md bg-white/[0.02] border border-[#D4AF37]/20 p-8 rounded-[3rem] shadow-[0_0_50px_rgba(212,175,55,0.1)]"
+            >
+              <h2 className="text-2xl font-black mb-8 text-center flex items-center justify-center gap-3">
+                <Sparkles className="text-[#D4AF37]" /> بوابتك للفضاء
+              </h2>
+              <div className="space-y-6">
+                {[
+                  { id: 'name', icon: User, label: 'اسمك بالكامل', val: customer.name },
+                  { id: 'phone', icon: Phone, label: 'رقم الموبايل', val: customer.phone },
+                  { id: 'address', icon: MapPin, label: 'عنوان التوصيل', val: customer.address }
+                ].map((input) => (
+                  <div key={input.id} className="relative group">
+                    <input 
+                      type="text" required
+                      className="w-full bg-white/5 border-b-2 border-white/10 p-4 pr-12 outline-none focus:border-[#D4AF37] focus:bg-white/[0.02] transition-all rounded-t-2xl text-lg font-bold"
+                      placeholder={input.label}
+                      value={input.val}
+                      onChange={e => setCustomer({...customer, [input.id]: e.target.value})}
+                    />
+                    <input.icon className="absolute right-4 top-4 text-white/20 group-focus-within:text-[#D4AF37] transition-colors" size={20} />
                   </div>
                 ))}
-                <div style={{marginTop:'1.5rem', padding:'1.2rem', background:'linear-gradient(135deg, #fffbeb, #fef3c7)', borderRadius:'1rem', fontWeight:800, textAlign:'center', border:'1px dashed #D4AF37'}}>
-                  الإجمالي: {formatPrice(total)}
-                </div>
-                <button onClick={() => {setShowCart(false); setShowOrder(true)}} style={{width:'100%', background:'#D4AF37', color:'#000', padding:'1.2rem', borderRadius:'1.2rem', border:'none', marginTop:'1.2rem', fontWeight:800, fontSize:'1rem'}}>استكمال الطلب</button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
+                <motion.button 
+                  disabled={loading}
+                  onClick={handleFinalOrder}
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  className="w-full py-5 bg-[#D4AF37] text-black rounded-2xl font-black text-xl shadow-[0_10px_30px_rgba(212,175,55,0.3)] flex items-center justify-center gap-3"
+                >
+                  {loading ? 'يتم الإطلاق...' : <><MessageCircle /> تأكيد الطلب الفضائي</>}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Order Form Modal */}
-      {showOrder && (
-        <div style={{position:'fixed', inset:0, zIndex:101, display:'flex', alignItems:'flex-end'}}>
-          <div style={{position:'absolute', inset:0, background:'rgba(0,0,0,.6)', backdropFilter:'blur(4px)'}} onClick={() => setShowOrder(false)}/>
-          <div style={{position:'relative', width:'100%', maxWidth:640, margin:'0 auto', background:'white', borderRadius:'2rem 2rem 0 0', padding:'2rem'}}>
-            <h3 style={{fontWeight:800, marginBottom:'1.5rem', textAlign:'center'}}>بيانات التوصيل 🚚</h3>
-            <div style={{display:'grid', gap:'1rem'}}>
-              <div style={{position:'relative'}}><User size={18} style={{position:'absolute', right:12, top:16, color:'#94a3b8'}}/><input placeholder="الاسم الكامل" style={{width:'100%', padding:'1rem 2.8rem 1rem 1rem', borderRadius:'1rem', border:'1px solid #e2e8f0', background:'#f8fafc'}} value={customer.name} onChange={e=>setCustomer({...customer, name:e.target.value})} /></div>
-              <div style={{position:'relative'}}><Phone size={18} style={{position:'absolute', right:12, top:16, color:'#94a3b8'}}/><input placeholder="رقم الهاتف" style={{width:'100%', padding:'1rem 2.8rem 1rem 1rem', borderRadius:'1rem', border:'1px solid #e2e8f0', background:'#f8fafc'}} value={customer.phone} onChange={e=>setCustomer({...customer, phone:e.target.value})} /></div>
-              <div style={{position:'relative'}}><MapPin size={18} style={{position:'absolute', right:12, top:16, color:'#94a3b8'}}/><input placeholder="عنوان التوصيل (اختياري)" style={{width:'100%', padding:'1rem 2.8rem 1rem 1rem', borderRadius:'1rem', border:'1px solid #e2e8f0', background:'#f8fafc'}} value={customer.address} onChange={e=>setCustomer({...customer, address:e.target.value})} /></div>
-              <button disabled={loading} onClick={handleOrder} style={{width:'100%', background:'#25d366', color:'white', padding:'1.2rem', borderRadius:'1.2rem', border:'none', fontWeight:800, fontSize:'1.1rem', marginTop:'1rem', display:'flex', alignItems:'center', justifyContent:'center', gap:'10px'}}>
-                {loading ? 'جاري التأكيد...' : <><MessageCircle size={20}/> تأكيد وإرسال لواتساب</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {ordered && (
-        <div style={{position:'fixed', inset:0, zIndex:200, background:'rgba(0,0,0,.85)', backdropFilter:'blur(8px)', display:'flex', alignItems:'center', justifyContent:'center'}}>
-          <div style={{background:'white', padding:'2.5rem', borderRadius:'2.5rem', textAlign:'center', maxWidth:320, border:'2px solid #25d366'}}>
-            <div style={{width:80, height:80, background:'#ecfdf5', borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1.5rem'}}><CheckCircle2 size={48} color="#25d366"/></div>
-            <h3 style={{fontWeight:900, fontSize:'1.3rem', marginBottom:'0.5rem'}}>تم إرسال طلبك!</h3>
-            <p style={{color:'#64748b', fontSize:'0.85rem', lineHeight:'1.5'}}>تم تسجيل طلبك في النظام وسيتم توجيهك الآن للمحادثة مع التاجر.</p>
-            <button onClick={() => setOrdered(false)} style={{marginTop:'2rem', width:'100%', padding:'0.8rem', borderRadius:'1rem', border:'1px solid #e2e8f0', background:'#f8fafc', fontWeight:700}}>إغلاق</button>
-          </div>
-        </div>
+      {/* شريط السلة العائم */}
+      {cart.length > 0 && !showOrder && (
+        <motion.div initial={{ y: 100 }} animate={{ y: 0 }} className="fixed bottom-8 inset-x-0 z-[50] flex justify-center px-6">
+           <button onClick={() => setShowOrder(true)} className="w-full max-w-lg bg-white text-black h-16 rounded-[2rem] flex items-center justify-between px-8 shadow-2xl group">
+              <div className="flex items-center gap-3 font-black text-lg">
+                <ChevronRight className="group-hover:translate-x-[-5px] transition-transform" /> استكمال الطلب ({cart.length})
+              </div>
+              <span className="font-black text-xl">{formatPrice(cart.reduce((s,i)=>s+(i.price*i.quantity),0))}</span>
+           </button>
+        </motion.div>
       )}
     </div>
   )

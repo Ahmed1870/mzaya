@@ -2,11 +2,12 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
-import { Wallet, Clock, CheckCircle, TrendingUp, ArrowDownCircle, RefreshCw, Landmark } from 'lucide-react'
+import { Wallet, Clock, CheckCircle, TrendingUp, ArrowDownCircle, RefreshCw, Landmark, Lock, Package } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function WalletPage() {
   const supabase = createClient()
+  const [radar, setRadar] = useState<any>(null)
   const [wallet, setWallet] = useState<any>(null)
   const [pending, setPending] = useState(0)
   const [recentTx, setRecentTx] = useState<any[]>([])
@@ -16,12 +17,14 @@ export default function WalletPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const [{ data: w }, { data: pendingInv }, { data: paidInv }] = await Promise.all([
+    const [{ data: rd }, { data: w }, { data: pendingInv }, { data: paidInv }] = await Promise.all([
+      supabase.from('profiles').select('plan_name, max_products').eq('id', user.id).single(),
       supabase.from('wallet').select('*').eq('user_id', user.id).single(),
       supabase.from('invoices').select('total_amount').eq('order_status', 'out_for_delivery'),
-      supabase.from('invoices').select('*').eq('status', 'paid').order('delivered_at', { ascending: false }).limit(8),
+      supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(10).order('created_at', { ascending: false }).limit(8),
     ])
 
+    setRadar(rd); // rd now contains profile info
     setWallet(w)
     setPending((pendingInv || []).reduce((s, i) => s + Number(i.total_amount), 0))
     setRecentTx(paidInv || [])
@@ -29,6 +32,9 @@ export default function WalletPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const isPro = radar?.plan_name === 'احترافية' || radar?.plan_name === 'البيزنس'
+  const isBusiness = radar?.plan_name === 'البيزنس'
 
   const handleWithdrawRequest = () => {
     Swal.fire({
@@ -53,43 +59,44 @@ export default function WalletPage() {
     })
   }
 
-  if (loading) return <div style={{display:'flex',justifyContent:'center',padding:'5rem'}}><RefreshCw className="animate-spin" color="#D4AF37"/></div>
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', padding: '5rem' }}><RefreshCw className="animate-spin" color="#D4AF37" /></div>
 
   return (
-    <div className="animate-fade-up" style={{ color: 'white' }}>
+    <div className="animate-fade-up" style={{ color: 'white', direction: 'rtl' }}>
       <header style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#D4AF37' }}>🏦 المحفظة المالية</h1>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>تتبع أرباحك وعمولات المناديب</p>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem' }}>تتبع أرباحك وعمولات المناديب • باقة {radar?.plan_name || 'المجانية'}</p>
         </div>
         <button onClick={handleWithdrawRequest} style={{ background: '#D4AF37', color: '#000', border: 'none', padding: '0.7rem 1.2rem', borderRadius: '12px', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Landmark size={18}/> سحب الأرباح
+          <Landmark size={18} /> سحب الأرباح
         </button>
       </header>
 
-      {/* الرصيد الأساسي */}
       <div style={{ background: 'linear-gradient(135deg, #111, #050505)', padding: '2.5rem', borderRadius: '2rem', border: '1px solid rgba(212,175,55,0.2)', textAlign: 'center', marginBottom: '2rem', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '2px', background: 'linear-gradient(90deg, transparent, #D4AF37, transparent)' }} />
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>صافي الرصيد المتاح</p>
         <h2 style={{ fontSize: '3.5rem', fontWeight: 900, color: '#D4AF37', margin: 0 }}>{formatPrice(wallet?.balance || 0)}</h2>
       </div>
 
-      {/* كروت الإحصائيات */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
         {[
-          { label: 'إجمالي المبيعات', value: wallet?.total_revenue, color: '#2ecc71', icon: <TrendingUp size={16}/> },
-          { label: 'رصيد معلق', value: pending, color: '#f59e0b', icon: <Clock size={16}/> },
-          { label: 'عمولات مدفوعة', value: wallet?.total_commissions, color: '#e74c3c', icon: <ArrowDownCircle size={16}/> }
+          { label: 'إجمالي المبيعات', value: radar?.total_sales, color: '#2ecc71', icon: <TrendingUp size={16} />, visible: true },
+          { label: 'صافي الأرباح', value: radar?.net_profit, color: '#D4AF37', icon: <CheckCircle size={16} />, visible: isPro },
+          { label: 'قيمة المخزن', value: radar?.current_inventory_value, color: '#3498db', icon: <Package size={16} />, visible: isPro },
+          { label: 'إجمالي المصاريف', value: radar?.total_expenses, color: '#e74c3c', icon: <ArrowDownCircle size={16} />, visible: isBusiness }
         ].map((item, i) => (
-          <div key={i} style={{ background: '#111', padding: '1.2rem', borderRadius: '1.5rem', border: '1px solid #222' }}>
+          <div key={i} style={{ background: '#111', padding: '1.2rem', borderRadius: '1.5rem', border: '1px solid #222', position: 'relative', opacity: item.visible ? 1 : 0.6 }}>
+            {!item.visible && <Lock size={14} style={{ position: 'absolute', top: '10px', left: '10px', color: '#444' }} />}
             <div style={{ color: item.color, marginBottom: '0.5rem' }}>{item.icon}</div>
             <p style={{ color: '#444', fontSize: '0.75rem', marginBottom: '0.2rem' }}>{item.label}</p>
-            <p style={{ fontSize: '1.1rem', fontWeight: 700 }}>{formatPrice(item.value || 0)}</p>
+            <p style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+              {item.visible ? formatPrice(item.value || 0) : 'مقفل'}
+            </p>
           </div>
         ))}
       </div>
 
-      {/* المعاملات الأخيرة */}
       <div style={{ background: '#111', borderRadius: '1.5rem', padding: '1.5rem', border: '1px solid rgba(212,175,55,0.05)' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', color: '#D4AF37' }}>آخر التحصيلات المكتملة</h3>
         <div style={{ display: 'grid', gap: '1rem' }}>
@@ -100,11 +107,10 @@ export default function WalletPage() {
               <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid #222' }}>
                 <div>
                   <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>{tx.customer_name}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#444' }}>#{tx.id.slice(0,5)} • {new Date(tx.delivered_at).toLocaleDateString('ar-EG')}</p>
+                  <p style={{ fontSize: '0.7rem', color: '#444' }}>#{tx.id.slice(0, 5)}</p>
                 </div>
                 <div style={{ textAlign: 'left' }}>
-                  <p style={{ color: '#2ecc71', fontWeight: 700 }}>+{formatPrice(tx.total_amount - (tx.commission_amount || 0))}</p>
-                  <p style={{ fontSize: '0.65rem', color: '#e74c3c' }}>عمولة: {formatPrice(tx.commission_amount || 0)}</p>
+                  <p style={{ color: '#2ecc71', fontWeight: 700 }}>+{formatPrice(tx.total_amount)}</p>
                 </div>
               </div>
             ))

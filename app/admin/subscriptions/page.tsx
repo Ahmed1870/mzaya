@@ -1,132 +1,161 @@
-'use client'
+'use client';
+import { CreditCard } from 'lucide-react';
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { ShieldCheck, Users, Package, Wallet, Clock, Check, Calendar, CreditCard } from 'lucide-react'
+import { ShieldCheck, Users, Package, Wallet, Clock, CheckCircle2, Star, Rocket, Gift } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function SuperAdminRadar() {
   const [requests, setRequests] = useState<any[]>([])
+  const [referralRequests, setReferralRequests] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'money' | 'referral'>('money')
   const [stats, setStats] = useState({ traders: 0, products: 0, revenue: 0 })
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
   const loadAllData = async () => {
     setLoading(true)
-    const { count: t } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
-    const { count: p } = await supabase.from('products').select('*', { count: 'exact', head: true })
-    const { data: rev } = await supabase.from('subscriptions_requests').select('amount').eq('status', 'approved')
-    const totalRev = rev?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
-    setStats({ traders: t || 0, products: p || 0, revenue: totalRev })
+    try {
+      const { count: t } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
+      const { count: p } = await supabase.from('products').select('*', { count: 'exact', head: true })
+      const { data: rev } = await supabase.from('subscriptions_requests').select('amount').eq('status', 'approved')
+      const totalRev = rev?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0
+      setStats({ traders: t || 0, products: p || 0, revenue: totalRev })
 
-    const { data: reqs, error } = await supabase
-      .from('subscriptions_requests')
-      .select('*, profiles:user_id(shop_name)')
-      .order('created_at', { ascending: false })
-    
-    if (error) console.error("Fetch error:", error)
-    setRequests(reqs || [])
-    setLoading(false)
+      const { data: reqs } = await supabase
+        .from('subscriptions_requests')
+        .select('*, profiles:user_id(shop_name, full_name)')
+        .order('created_at', { ascending: false })
+      setRequests(reqs || [])
+
+      // جلب الإحالات المؤهلة (5 أو 10 إحالات)
+      const { data: allProfiles } = await supabase.from('profiles').select('id, shop_name, plan_name')
+      const eligible = []
+      for (const prof of allProfiles || []) {
+        const { count } = await supabase.from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('referrer_id', prof.id)
+          .neq('plan_name', 'مجانية') // شرطك: لازم المشتركين يكونوا فعلوا باقات
+        
+        if (count && count >= 5) {
+          eligible.push({ ...prof, referral_count: count })
+        }
+      }
+      setReferralRequests(eligible.filter(p => p.plan_name === 'مجانية' || p.plan_name === 'احترافية'))
+    } catch (err) { console.error(err) } finally { setLoading(false) }
   }
 
   useEffect(() => { loadAllData() }, [])
 
-  const handleActivate = async (req: any) => {
-    const shopName = req.profiles?.shop_name || 'تاجر جديد'
-    
+  const handleActivate = async (req: any, type: 'paid' | 'gift' = 'paid') => {
+    const planToSet = req.plan_name;
     const { isConfirmed } = await Swal.fire({
-      title: 'تأكيد التفعيل المالي',
-      html: `هل استلمت التحويل لتفعيل باقة <b style="color:#d4af37">${req.plan_name}</b><br>لمتجر: <b>${shopName}</b>؟`,
-      icon: 'warning',
+      title: type === 'paid' ? 'تأكيد التفعيل المالي' : 'تأكيد مكافأة الإحالة',
+      text: `تفعيل باقة ${planToSet} لمتجر ${req.profiles?.shop_name || req.shop_name}؟`,
+      icon: 'question',
       showCancelButton: true,
-      confirmButtonColor: '#1ed760',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'نعم، فعل الحساب',
-      cancelButtonText: 'إلغاء',
-      background: '#050505',
-      color: '#fff'
+      confirmButtonText: 'نعم، تفعيل الآن',
+      background: '#0a0a0a', color: '#fff', confirmButtonColor: '#d4af37'
     })
 
     if (isConfirmed) {
-      const expiry = new Date(); expiry.setDate(expiry.getDate() + 30)
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
 
-      // 1. تحديث حالة الطلب للأدمن
-      const { error: err1 } = await supabase.from('subscriptions_requests').update({ status: 'approved' }).eq('id', req.id)
-      
-      // 2. التفعيل الفوري في بروفايل التاجر
-      const { error: err2 } = await supabase.from('profiles').update({
+      // 1. تحديث البروفايل (فتح كل الصلاحيات)
+      const { error: profileErr } = await supabase.from('profiles').update({
+        plan_name: planToSet,
         is_subscribed: true,
-        plan_name: req.plan_name,
-        subscription_expiry: expiry.toISOString()
-      }).eq('id', req.user_id)
+        subscription_status: 'active',
+        subscription_activated_at: new Date().toISOString(),
+        subscription_end_date: expiryDate.toISOString(),
+        max_products: planToSet === 'البيزنس' ? 999999 : 500, // فتح الحدود
+        upgrade_requested: false
+      }).eq('id', req.user_id || req.id)
 
-      // 3. الميزة الجديدة: إرسال تنبيه لحظي (Realtime Broadcast) للتاجر
-      // بنبعت "قنبلة" داتا التاجر هيفجرها عنده ويطلع الآلارم
-      await supabase.channel(`user-updates-${req.user_id}`).send({
-        type: 'broadcast',
-        event: 'plan-activated',
-        payload: { plan: req.plan_name, message: 'مبروك! تم تفعيل باقتك بنجاح 🚀' }
-      })
+      if (profileErr) return Swal.fire('خطأ', 'فشل تحديث البروفايل', 'error');
 
-      if (!err1 && !err2) {
-        Swal.fire({
-          title: 'تم التفعيل بنجاح! ✅',
-          text: `التاجر ${shopName} أصبح بريميوم الآن`,
-          icon: 'success',
-          background: '#050505',
-          color: '#fff',
-          showConfirmButton: false,
-          timer: 2000
-        })
-        loadAllData()
-      } else {
-        Swal.fire('خطأ', 'حدثت مشكلة أثناء التفعيل في الداتا بيز', 'error')
+      // 2. تحديث حالة الطلب لو كان طلب مالي
+      if (type === 'paid' && req.id) {
+        await supabase.from('subscriptions_requests').update({ status: 'approved' }).eq('id', req.id)
       }
+
+      // 3. إرسال إشعار داخلي للتاجر
+      await supabase.from('notifications').insert([{
+        user_id: req.user_id || req.id,
+        title: 'مبروك! تم تفعيل باقتك 🚀',
+        message: `تم تفعيل باقة ${planToSet} بنجاح. يمكنك الآن استخدام كافة المميزات لمدة 30 يوم.`,
+        type: 'subscription'
+      }])
+
+      Swal.fire({ icon: 'success', title: 'تم التفعيل وفتح المميزات ✅', background: '#0a0a0a', color: '#fff' })
+      loadAllData()
     }
   }
 
   return (
-    <div style={{ background: '#050505', color: '#d4af37', minHeight: '100vh', padding: '25px', direction: 'rtl', fontFamily: 'Tajawal, sans-serif' }}>
-      <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px' }}><ShieldCheck size={30}/> رادار التفعيل الحية</h1>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginBottom: '30px' }}>
-        <div style={sCard}><Users size={20}/> <p>تجار: {stats.traders}</p></div>
-        <div style={sCard}><Package size={20}/> <p>بضاعة: {stats.products}</p></div>
-        <div style={sCard}><Wallet size={20} color="#1ed760"/> <p>أرباح: {stats.revenue}</p></div>
+    <div className="min-h-screen bg-[#050505] text-[#d4af37] p-8" style={{ direction: 'rtl', fontFamily: 'sans-serif' }}>
+      <div className="flex justify-between items-center mb-10">
+        <h1 className="text-3xl font-black flex items-center gap-3"><ShieldCheck size={40}/> رادار الإدارة العليـا</h1>
+        <div className="flex gap-4">
+            <div className="bg-[#111] p-4 rounded-2xl border border-white/5 text-center min-w-[120px]">
+                <p className="text-gray-500 text-xs">إجمالي التجار</p>
+                <p className="text-xl font-bold text-white">{stats.traders}</p>
+            </div>
+            <div className="bg-[#111] p-4 rounded-2xl border border-white/5 text-center min-w-[120px]">
+                <p className="text-gray-500 text-xs">إجمالي الأرباح</p>
+                <p className="text-xl font-bold text-green-500">{stats.revenue} ج.م</p>
+            </div>
+        </div>
       </div>
 
-      <div style={listContainer}>
-        <h3 style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'20px'}}><Clock size={20}/> طلبات بانتظار المراجعة</h3>
-        
-        {requests.length === 0 && <p style={{textAlign:'center', color:'#666', padding:'20px'}}>الرادار هادئ حالياً..</p>}
-        
-        {requests.map(req => (
-          <div key={req.id} style={reqItem}>
-            <div style={{flex: 1}}>
-              <div style={{color:'#fff', fontWeight:'bold', fontSize:'16px'}}>{req.profiles?.shop_name || 'تاجر جديد'}</div>
-              <div style={{display:'flex', gap:'15px', marginTop:'5px', fontSize:'12px'}}>
-                <span style={{display:'flex', alignItems:'center', gap:'4px', color:'#d4af37'}}><CreditCard size={14}/> {req.sender_number}</span>
-                <span style={{display:'flex', alignItems:'center', gap:'4px', color:'#888'}}><Calendar size={14}/> {new Date(req.created_at).toLocaleString('ar-EG')}</span>
-              </div>
-            </div>
+      <div className="flex gap-2 mb-8 bg-[#111] p-1 rounded-2xl w-fit">
+        <button onClick={() => setActiveTab('money')} className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'money' ? 'bg-[#d4af37] text-black shadow-lg' : 'text-gray-500'}`}>طلبات الاشتراك ({requests.filter(r=>r.status==='pending').length})</button>
+        <button onClick={() => setActiveTab('referral')} className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'referral' ? 'bg-[#d4af37] text-black shadow-lg' : 'text-gray-500'}`}>مكافآت الإحالة ({referralRequests.length})</button>
+      </div>
 
-            <div style={{textAlign:'left' as const}}>
-               <div style={{fontSize:'12px', color:'#fff', marginBottom:'5px'}}>{req.plan_name}</div>
-              {req.status === 'pending' ? (
-                <button onClick={() => handleActivate(req)} style={actBtn}>تفعيل الآن</button>
-              ) : (
-                <div style={{display:'flex', alignItems:'center', gap:'5px', color:'#1ed760', fontWeight:'bold'}}>
-                  <Check size={20}/> تم التفعيل
+      <div className="bg-[#0a0a0a] rounded-[2.5rem] border border-white/5 overflow-hidden">
+        {loading ? (
+          <div className="p-20 text-center animate-pulse">جاري فحص قاعدة البيانات...</div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {activeTab === 'money' ? (
+              requests.length > 0 ? requests.map(req => (
+                <div key={req.id} className="p-6 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/5 rounded-2xl"><CreditCard size={20}/></div>
+                    <div>
+                        <p className="text-white font-bold">{req.profiles?.shop_name || 'متجر غير معروف'}</p>
+                        <p className="text-xs text-gray-500">الباقة: {req.plan_name} | رقم المحول: {req.sender_number}</p>
+                    </div>
+                  </div>
+                  {req.status === 'pending' ? (
+                    <button onClick={() => handleActivate(req, 'paid')} className="bg-[#d4af37] text-black px-6 py-2 rounded-xl font-black hover:scale-105 active:scale-95 transition-all">تفعيل الآن</button>
+                  ) : <span className="text-green-500 font-bold flex items-center gap-1"><CheckCircle2 size={16}/> تم التفعيل</span>}
                 </div>
-              )}
-            </div>
+              )) : <div className="p-20 text-center text-gray-600 font-bold">لا توجد طلبات معلقة</div>
+            ) : (
+              referralRequests.length > 0 ? referralRequests.map(u => {
+                const targetPlan = u.referral_count >= 10 ? 'البيزنس' : 'احترافية';
+                return (
+                  <div key={u.id} className="p-6 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-500"><Gift size={20}/></div>
+                      <div>
+                          <p className="text-white font-bold">{u.shop_name}</p>
+                          <p className="text-xs text-gray-500">لديه {u.referral_count} إحالة نشطة | مستحق لباقة: {targetPlan}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleActivate({id: u.id, plan_name: targetPlan, shop_name: u.shop_name}, 'gift')} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-black hover:bg-blue-500 transition-all flex items-center gap-2">
+                        <Rocket size={16}/> ترقية مجانية
+                    </button>
+                  </div>
+                )
+              }) : <div className="p-20 text-center text-gray-600 font-bold">لا يوجد تجار مؤهلين للمكافآت حالياً</div>
+            )}
           </div>
-        ))}
+        )}
       </div>
     </div>
   )
 }
-
-const sCard = { background: '#111', padding: '15px', borderRadius: '15px', border: '1px solid #222', textAlign: 'center' as const }
-const listContainer = { background: '#111', borderRadius: '25px', padding: '20px', border: '1px solid #d4af3733' }
-const reqItem = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px', borderBottom: '1px solid #222' }
-const actBtn = { background: '#d4af37', color: '#000', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: 'bold' as const, cursor: 'pointer' }

@@ -5,10 +5,12 @@ import Link from 'next/link'
 import { 
   LayoutDashboard, Package, Truck, Sparkles, FileText, Bike, Users, 
   BarChart2, Wallet, Calculator, Megaphone, Store, Shield, Trophy, 
-  Gift, Headphones, LogOut, Menu, X, ShieldCheck 
+  Gift, Headphones, LogOut, Menu, X, ShieldCheck, Lock 
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import Swal from 'sweetalert2'
 
+// تعريف المنيو مع تحديد الميزات "المدفوعة"
 const navItems = [
   { href: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/products', label: 'المنتجات', icon: Package },
@@ -16,11 +18,11 @@ const navItems = [
   { href: '/dashboard/subscription', label: 'باقات الاشتراك 💎', icon: Sparkles },
   { href: '/dashboard/invoices', label: 'الفواتير', icon: FileText },
   { href: '/dashboard/couriers', label: 'المناديب', icon: Bike },
-  { href: '/dashboard/crm', label: 'رادار العملاء', icon: Users },
-  { href: '/dashboard/analytics', label: 'التقارير', icon: BarChart2 },
+  { href: '/dashboard/crm', label: 'رادار العملاء', icon: Users, isPremium: true },
+  { href: '/dashboard/analytics', label: 'التقارير', icon: BarChart2, isPremium: true },
   { href: '/dashboard/wallet', label: 'المحفظة', icon: Wallet },
   { href: '/dashboard/calculator', label: 'حاسبة الأرباح', icon: Calculator },
-  { href: '/dashboard/ads', label: 'مولد الإعلانات', icon: Megaphone },
+  { href: '/dashboard/ads', label: 'مولد الإعلانات', icon: Megaphone, isPremium: true },
   { href: '/dashboard/store', label: 'متجري', icon: Store },
   { href: '/dashboard/logs', label: 'سجل النشاط', icon: Shield },
   { href: '/dashboard/achievements', label: 'الإنجازات', icon: Trophy },
@@ -34,9 +36,28 @@ export default function DashboardShell({ children, user, profile, isAdmin }: any
   const router = useRouter()
   const supabase = createClient()
 
+  const isBusiness = profile?.plan_name === 'البيزنس' || isAdmin
+
   const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/')
+  }
+
+  const handlePremiumClick = (e: any, item: any) => {
+    if (item.isPremium && !isBusiness) {
+      e.preventDefault()
+      Swal.fire({
+        title: 'ميزة مدفوعة 💎',
+        text: `خدمة "${item.label}" متاحة فقط لمشتركي باقة البيزنس. رقي حسابك الآن للوصول إليها!`,
+        icon: 'info',
+        background: '#050505',
+        color: '#fff',
+        confirmButtonColor: '#D4AF37',
+        confirmButtonText: 'عرض الباقات'
+      }).then((result) => {
+        if (result.isConfirmed) router.push('/dashboard/subscription')
+      })
+    }
   }
 
   const SidebarContent = () => (
@@ -58,10 +79,29 @@ export default function DashboardShell({ children, user, profile, isAdmin }: any
       <nav style={{ flex: 1, padding: '.6rem', display: 'grid', gap: '.1rem', alignContent: 'start', overflowY: 'auto' }}>
         {navItems.map(item => {
           const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href)
+          const locked = item.isPremium && !isBusiness
           return (
-            <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)} style={{ padding: '.55rem .75rem', display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: isActive ? '#D4AF37' : 'rgba(255,255,255,0.6)', background: isActive ? 'rgba(212,175,55,0.05)' : 'transparent', borderRadius: '8px' }}>
-              <item.icon size={13}/>
-              <span style={{ fontSize: '.78rem' }}>{item.label}</span>
+            <Link 
+              key={item.href} 
+              href={item.href} 
+              onClick={(e) => { setSidebarOpen(false); handlePremiumClick(e, item); }} 
+              style={{ 
+                padding: '.55rem .75rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                textDecoration: 'none', 
+                color: locked ? 'rgba(255,255,255,0.2)' : (isActive ? '#D4AF37' : 'rgba(255,255,255,0.6)'), 
+                background: isActive ? 'rgba(212,175,55,0.05)' : 'transparent', 
+                borderRadius: '8px',
+                cursor: locked ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <item.icon size={13}/>
+                <span style={{ fontSize: '.78rem' }}>{item.label}</span>
+              </div>
+              {locked && <Lock size={10} color="rgba(212,175,55,0.3)" />}
             </Link>
           )
         })}
@@ -86,6 +126,9 @@ export default function DashboardShell({ children, user, profile, isAdmin }: any
           </button>
           <div style={{ fontWeight: 900, fontSize: '1rem', color: '#D4AF37' }}>MAZAYA</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+             <span style={{ fontSize: '0.65rem', color: '#D4AF37', border: '1px solid rgba(212,175,55,0.3)', padding: '2px 8px', borderRadius: '10px' }}>
+               باقة: {profile?.plan_name || 'مجانية'}
+             </span>
              {isAdmin && <Link href="/admin" style={{ color: '#D4AF37', fontSize: '0.8rem', border: '1px solid #D4AF37', padding: '4px 12px', borderRadius: '20px', textDecoration: 'none' }}>ADMIN 📡</Link>}
              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1A1A1A', border: '1px solid rgba(212,175,55,0.2)' }} />
           </div>

@@ -1,187 +1,131 @@
-// app/page.tsx
+'use client'
+import { motion, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowLeft, BarChart2, Camera, Zap, Star, TrendingUp, FileText, Search } from 'lucide-react'
+import { 
+  Rocket, ShieldCheck, Zap, BarChart3, CheckCircle2, 
+  ArrowLeft, Star, Mail, MessageCircle 
+} from 'lucide-react'
 
 export default function LandingPage() {
+  const { scrollYProgress } = useScroll()
+  const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0])
+  const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.9])
+
   return (
-    <div style={{background:'#0f172a',minHeight:'100vh',fontFamily:"'IBM Plex Sans Arabic',sans-serif"}}>
-      {/* Nav */}
-      <nav style={{
-        position:'fixed',top:0,left:0,right:0,zIndex:100,
-        display:'flex',alignItems:'center',justifyContent:'space-between',
-        padding:'1rem 2rem',
-        background:'rgba(15,23,42,.9)',
-        backdropFilter:'blur(20px)',
-        borderBottom:'1px solid rgba(255,255,255,.06)'
-      }}>
-        <div style={{fontWeight:800,fontSize:'1.4rem',background:'linear-gradient(135deg,#4361ee,#f8961e)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>
-          Mzaya
-        </div>
-        <div style={{display:'flex',gap:'1rem',alignItems:'center'}}>
-          <Link href="/auth/login" style={{color:'rgba(255,255,255,.6)',textDecoration:'none',fontSize:'.875rem'}}>دخول</Link>
-          <Link href="/auth/register" style={{
-            background:'#4361ee',color:'white',padding:'.6rem 1.4rem',
-            borderRadius:'.75rem',textDecoration:'none',fontSize:'.875rem',fontWeight:600,
-            boxShadow:'0 4px 16px rgba(67,97,238,.3)'
-          }}>ابدأ مجاناً</Link>
+    <div className="min-h-screen bg-[#020202] text-white selection:bg-[#D4AF37] selection:text-black font-['IBM_Plex_Sans_Arabic'] overflow-x-hidden" dir="rtl">
+      
+      {/* خلفية النجوم المتحركة */}
+      <div className="fixed inset-0 z-0 opacity-30 pointer-events-none">
+        <div className="stars-container"></div>
+      </div>
+
+      {/* Navbar الفاخر */}
+      <nav className="fixed top-0 w-full z-[100] bg-black/20 backdrop-blur-2xl border-b border-white/5">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+          <motion.div whileHover={{ scale: 1.05 }} className="flex items-center gap-3 cursor-pointer">
+             <div className="w-10 h-10 bg-gradient-to-br from-[#D4AF37] to-[#8A6D3B] rounded-xl rotate-12 flex items-center justify-center shadow-[0_0_20px_rgba(212,175,55,0.3)]">
+                <span className="text-black -rotate-12 font-black text-2xl">M</span>
+             </div>
+             <span className="text-2xl font-black tracking-tighter bg-gradient-to-r from-[#D4AF37] to-[#FFD700] bg-clip-text text-transparent uppercase">Mazaya</span>
+          </motion.div>
+          
+          <div className="flex gap-6 items-center">
+            <Link href="/auth/login" className="text-sm font-bold text-gray-400 hover:text-[#D4AF37] transition-all relative group">
+              دخول
+              <span className="absolute -bottom-1 right-0 w-0 h-0.5 bg-[#D4AF37] group-hover:w-full transition-all"></span>
+            </Link>
+            <Link href="/auth/register" className="relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-bold text-black transition-all bg-[#D4AF37] rounded-full group">
+              <span className="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+              <span className="relative">ابدأ الآن</span>
+            </Link>
+          </div>
         </div>
       </nav>
 
-      {/* Hero */}
-      <div style={{
-        minHeight:'100vh',display:'flex',alignItems:'center',
-        padding:'8rem 2rem 4rem',position:'relative',overflow:'hidden'
-      }}>
-        <div style={{
-          position:'absolute',inset:0,
-          background:'radial-gradient(ellipse 80% 60% at 50% 0%,rgba(67,97,238,.12) 0%,transparent 70%)',
-          pointerEvents:'none'
-        }}/>
-        <div style={{
-          position:'absolute',inset:0,
-          backgroundImage:'linear-gradient(rgba(67,97,238,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(67,97,238,.04) 1px,transparent 1px)',
-          backgroundSize:'50px 50px',
-          maskImage:'radial-gradient(ellipse at center,black 20%,transparent 70%)',
-          pointerEvents:'none'
-        }}/>
+      {/* Hero Section */}
+      <section className="relative pt-56 pb-32 px-6 flex flex-col items-center">
+        <motion.div style={{ opacity, scale }} className="text-center z-10">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 px-6 py-2 rounded-full border border-[#D4AF37]/30 bg-[#D4AF37]/5 text-[#D4AF37] text-xs font-black mb-12"
+          >
+            <Star size={14} fill="#D4AF37" /> نظام إدارة النخبة
+          </motion.div>
 
-        <div style={{maxWidth:'720px',margin:'0 auto',textAlign:'center',position:'relative',zIndex:2}}>
-          <div style={{
-            display:'inline-flex',alignItems:'center',gap:'.5rem',
-            background:'rgba(67,97,238,.1)',border:'1px solid rgba(67,97,238,.2)',
-            color:'#818cf8',padding:'.4rem 1rem',borderRadius:'99px',
-            fontSize:'.8rem',fontWeight:600,marginBottom:'2rem'
-          }}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:'#2dc653',boxShadow:'0 0 6px #2dc653',display:'inline-block'}}/>
-            أداة التاجر الذكي رقم ١ في مصر
-          </div>
+          <motion.h1 
+            initial={{ opacity: 0, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, filter: 'blur(0px)' }}
+            transition={{ duration: 1 }}
+            className="text-7xl md:text-[120px] font-black leading-none mb-12 tracking-tighter"
+          >
+            عصر جديد <br />
+            <span className="text-outline-gold hover:text-[#D4AF37] transition-all duration-700 cursor-default">من القوة</span>
+          </motion.h1>
 
-          <h1 style={{
-            fontSize:'clamp(2.5rem,6vw,4.5rem)',fontWeight:800,
-            color:'white',lineHeight:1.1,letterSpacing:'-2px',marginBottom:'1.5rem'
-          }}>
-            كل <span style={{background:'linear-gradient(135deg,#4361ee,#f8961e)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>مزايا</span> تجارتك<br/>
-            في مكان واحد
-          </h1>
+          <motion.p className="text-gray-400 text-xl md:text-3xl max-w-4xl mx-auto mb-16 font-light leading-relaxed">
+            بنينا "مزايا" لنمنحك السيطرة الكاملة على إمبراطوريتك التجارية. <br/> فخامة التصميم تلتقي بذكاء الأرقام.
+          </motion.p>
 
-          <p style={{fontSize:'1.1rem',color:'rgba(255,255,255,.5)',lineHeight:1.8,marginBottom:'2.5rem',maxWidth:'520px',margin:'0 auto 2.5rem'}}>
-            أضف منتجاتك بالكاميرا، اعرف أرباحك لحظة بلحظة، وخلّي الذكاء الاصطناعي يعمل إعلاناتك — كل ده مجاناً.
-          </p>
+          <Link href="/auth/register" className="px-16 py-7 bg-white text-black rounded-3xl font-black text-2xl hover:bg-[#D4AF37] transition-all hover:shadow-[0_0_50px_rgba(212,175,55,0.4)] inline-flex items-center gap-4">
+               انطلق الآن <Rocket size={24} />
+          </Link>
+        </motion.div>
+      </section>
 
-          <div style={{display:'flex',gap:'1rem',justifyContent:'center',flexWrap:'wrap',marginBottom:'4rem'}}>
-            <Link href="/auth/register" style={{
-              background:'linear-gradient(135deg,#4361ee,#3a0ca3)',color:'white',
-              padding:'.9rem 2.5rem',borderRadius:'1rem',textDecoration:'none',
-              fontSize:'1rem',fontWeight:700,
-              boxShadow:'0 8px 24px rgba(67,97,238,.35)',
-              display:'inline-flex',alignItems:'center',gap:'.5rem'
-            }}>
-              🚀 ابدأ مجاناً
-            </Link>
-            <Link href="/auth/login" style={{
-              background:'rgba(255,255,255,.06)',color:'rgba(255,255,255,.8)',
-              padding:'.9rem 2.5rem',borderRadius:'1rem',textDecoration:'none',
-              fontSize:'1rem',fontWeight:600,border:'1px solid rgba(255,255,255,.1)'
-            }}>
-              تسجيل الدخول
-            </Link>
-          </div>
-
-          {/* Stats */}
-          <div style={{display:'flex',gap:'3rem',justifyContent:'center',flexWrap:'wrap'}}>
-            {[{v:'+500',l:'تاجر نشط'},{v:'98%',l:'رضا المستخدمين'},{v:'3x',l:'نمو المبيعات'}].map((s,i)=>(
-              <div key={i} style={{textAlign:'center'}}>
-                <div style={{fontSize:'2rem',fontWeight:800,background:'linear-gradient(135deg,#4361ee,#f8961e)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>{s.v}</div>
-                <div style={{fontSize:'.8rem',color:'rgba(255,255,255,.35)',marginTop:'.2rem'}}>{s.l}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Features */}
-      <div style={{padding:'5rem 2rem',background:'#0a0f1e'}}>
-        <div style={{maxWidth:'1100px',margin:'0 auto'}}>
-          <h2 style={{textAlign:'center',fontSize:'2rem',fontWeight:800,color:'white',marginBottom:'3rem'}}>
-            كل اللي التاجر محتاجه
-          </h2>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:'1.2rem'}}>
-            {[
-              {icon:'📷',t:'رفع بالكاميرا + AI',d:'صوّر منتجك والذكاء الاصطناعي يكتبلك الاسم والوصف والسعر'},
-              {icon:'💰',t:'حاسبة الأرباح',d:'اعرف صافي ربحك بعد التكلفة والشحن لحظة بلحظة'},
-              {icon:'🎯',t:'مولد إعلانات AI',d:'٥ أفكار إعلانات جاهزة لفيسبوك وتيك توك بضغطة واحدة'},
-              {icon:'🔍',t:'رادار المنافسة',d:'شوف منافسيك بيبيعوا بكام وسعّر بذكاء'},
-              {icon:'📊',t:'داشبورد كامل',d:'كل منتجاتك وأرباحك ومخزونك في مكان واحد'},
-              {icon:'⚡',t:'فاتورة واتساب',d:'أنشئ فاتورة احترافية وشاركها على واتساب في ثانية'},
-            ].map((f,i)=>(
-              <div key={i} style={{
-                background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.06)',
-                borderRadius:'1.2rem',padding:'1.5rem',transition:'all .3s'
-              }}>
-                <div style={{fontSize:'2rem',marginBottom:'.8rem'}}>{f.icon}</div>
-                <div style={{fontWeight:700,color:'white',marginBottom:'.5rem'}}>{f.t}</div>
-                <div style={{fontSize:'.875rem',color:'rgba(255,255,255,.4)',lineHeight:1.7}}>{f.d}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Pricing */}
-      <div style={{padding:'5rem 2rem',background:'#0f172a'}}>
-        <div style={{maxWidth:'800px',margin:'0 auto',textAlign:'center'}}>
-          <h2 style={{fontSize:'2rem',fontWeight:800,color:'white',marginBottom:'3rem'}}>ابدأ مجاناً</h2>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'1.2rem',alignItems:'center'}}>
-            {[
-              {name:'مجاني',price:'٠',features:['٥ منتجات','داشبورد أساسي','حاسبة الأرباح'],featured:false},
-              {name:'احترافي',price:'٩٩',features:['منتجات غير محدودة','AI كامل','مولد إعلانات','رادار المنافسة','فواتير PDF'],featured:true},
-              {name:'بيزنس',price:'١٩٩',features:['كل مميزات الاحترافي','تحليلات متقدمة','أولوية دعم'],featured:false},
-            ].map((p,i)=>(
-              <div key={i} style={{
-                background: p.featured ? 'linear-gradient(135deg,#1e1b4b,#312e81)' : 'rgba(255,255,255,.04)',
-                border: p.featured ? '1px solid rgba(67,97,238,.4)' : '1px solid rgba(255,255,255,.06)',
-                borderRadius:'1.5rem',padding:'2rem',
-                transform: p.featured ? 'scale(1.05)' : 'scale(1)',
-                boxShadow: p.featured ? '0 20px 60px rgba(67,97,238,.2)' : 'none',
-                position:'relative'
-              }}>
-                {p.featured && <div style={{
-                  position:'absolute',top:'-12px',right:'50%',transform:'translateX(50%)',
-                  background:'linear-gradient(135deg,#f8961e,#f3722c)',color:'white',
-                  padding:'.3rem 1rem',borderRadius:'99px',fontSize:'.75rem',fontWeight:700
-                }}>🔥 الأشهر</div>}
-                <div style={{color:'rgba(255,255,255,.5)',fontSize:'.875rem',marginBottom:'.8rem'}}>{p.name}</div>
-                <div style={{fontSize:'2.5rem',fontWeight:800,color:'white',marginBottom:'1.5rem'}}>{p.price}<span style={{fontSize:'1rem',fontWeight:400,color:'rgba(255,255,255,.4)'}}> ج/شهر</span></div>
-                <div style={{display:'grid',gap:'.7rem',marginBottom:'1.5rem'}}>
-                  {p.features.map((f,j)=>(
-                    <div key={j} style={{display:'flex',alignItems:'center',gap:'.6rem',fontSize:'.875rem',color:'rgba(255,255,255,.6)'}}>
-                      <span style={{color:'#2dc653',fontWeight:700}}>✓</span>{f}
-                    </div>
+      {/* Pricing Section */}
+      <section className="py-32 px-6">
+        <div className="grid md:grid-cols-2 gap-16 max-w-6xl mx-auto">
+           <div className="relative p-1 bg-[#080808] rounded-[4rem] border border-white/5 p-16">
+                <h3 className="text-2xl font-bold text-gray-500 mb-6 uppercase tracking-[5px]">Professional</h3>
+                <div className="text-7xl font-black mb-12">99 <span className="text-xl font-light opacity-40">EGP</span></div>
+                <ul className="space-y-6 mb-16">
+                  {['مخازن ذكية', 'تقارير يومية', 'دعم واتساب'].map(i => (
+                    <li key={i} className="flex items-center gap-4 text-xl opacity-70"><CheckCircle2 className="text-[#D4AF37]" /> {i}</li>
                   ))}
-                </div>
-                <Link href="/auth/register" style={{
-                  display:'block',textAlign:'center',padding:'.8rem',borderRadius:'.8rem',
-                  textDecoration:'none',fontWeight:700,fontSize:'.9rem',
-                  background: p.featured ? 'linear-gradient(135deg,#f8961e,#f3722c)' : 'rgba(255,255,255,.08)',
-                  color:'white'
-                }}>ابدأ دلوقتي</Link>
-              </div>
-            ))}
-          </div>
-          <p style={{marginTop:'2rem',color:'rgba(255,255,255,.3)',fontSize:'.85rem'}}>
-            📞 واتساب: 01019672878 · ✉️ ahmegoma@gmail.com
-          </p>
-        </div>
-      </div>
+                </ul>
+                <button className="w-full py-6 rounded-3xl border border-white/10 font-black text-xl hover:bg-white hover:text-black transition-all">اشتراك</button>
+           </div>
 
-      {/* Footer */}
-      <footer style={{
-        padding:'2rem',background:'#0a0f1e',
-        borderTop:'1px solid rgba(255,255,255,.06)',
-        textAlign:'center',color:'rgba(255,255,255,.25)',fontSize:'.8rem'
-      }}>
-        © ٢٠٢٦ Mzaya · جميع الحقوق محفوظة
+           <div className="relative p-16 bg-[#D4AF37] text-black rounded-[4rem] shadow-[0_40px_100px_rgba(212,175,55,0.15)] flex flex-col">
+                <div className="flex justify-between items-start mb-6">
+                   <h3 className="text-2xl font-black uppercase tracking-[5px]">Business</h3>
+                </div>
+                <div className="text-7xl font-black mb-12">199 <span className="text-xl font-black opacity-60">EGP</span></div>
+                <ul className="space-y-6 mb-16 flex-grow">
+                  {['ذكاء اصطناعي', 'تعدد الفروع', 'دعم VIP 24/7'].map(i => (
+                    <li key={i} className="flex items-center gap-4 text-xl font-black"><CheckCircle2 /> {i}</li>
+                  ))}
+                </ul>
+                <button className="w-full py-6 rounded-3xl bg-black text-[#D4AF37] font-black text-xl hover:scale-95 transition-all">ابدأ الآن</button>
+           </div>
+        </div>
+      </section>
+
+      {/* Footer مع الأيقونات اللي كانت ناقصة */}
+      <footer className="py-32 px-6 border-t border-white/5">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12">
+           <div className="text-right">
+              <h4 className="text-2xl font-black mb-4">تواصل مع المبتكر</h4>
+              <p className="text-gray-500 max-w-xs">أحمد - مطور منصة مزايا لإدارة الأعمال الذكية.</p>
+           </div>
+           <div className="flex gap-8">
+              <a href="mailto:xcm3108@gmail.com" className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center hover:bg-[#D4AF37] transition-all transition-colors"><Mail size={32} /></a>
+              <a href="https://wa.me/201019672878" className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center hover:bg-[#25D366] transition-all transition-colors"><MessageCircle size={32} /></a>
+           </div>
+        </div>
       </footer>
+
+      <style jsx global>{`
+        .text-outline-gold { color: transparent; -webkit-text-stroke: 1px #D4AF37; }
+        .stars-container {
+          background-image: radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+                            radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0));
+          background-repeat: repeat; background-size: 200px 200px;
+          animation: stars-move 100s linear infinite; width: 100%; height: 100%;
+        }
+        @keyframes stars-move { from { background-position: 0 0; } to { background-position: 1000px 1000px; } }
+      `}</style>
     </div>
   )
 }

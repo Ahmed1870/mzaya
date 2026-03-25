@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
-
+const nextConfig = {
+  // تفعيل الـ Trailing Slash لضمان استقرار الروابط على الموبايل
+  trailingSlash: true,
+};
 export default nextConfig;
-// Mzaya Build Trigger: Mon Mar 23 00:19:12 EET 2026
-// Force Build V7

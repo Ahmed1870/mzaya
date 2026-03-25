@@ -1,83 +1,90 @@
 'use client'
-import { createClient } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
-import { getSubscriptionStatus } from '@/lib/subscription'
-import { Crown, Zap, CheckCircle2, Star } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
+import { Rocket, Star, Check, Crown } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function SubscriptionPage() {
   const supabase = createClient()
+  const [currentPlan, setCurrentPlan] = useState('مجاني')
   const [loading, setLoading] = useState(false)
-  const [currentPlan, setCurrentPlan] = useState('تحميل...')
-  const [user, setUser] = useState<any>(null)
-
-  const cardStyle = { background: '#0a0a0a', padding: '50px 40px', borderRadius: '35px', width: '350px', textAlign: 'center' as const, position: 'relative' as const, transition: 'transform 0.3s ease' };
-  const activeBadge = { position: 'absolute' as const, top: '-15px', left: '50%', transform: 'translateX(-50%)', background: '#d4af37', color: '#000', padding: '5px 20px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' as const };
-  const btnGold = { background: 'linear-gradient(45deg, #d4af37, #fbf5b7)', color: '#000', border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900' as const, cursor: 'pointer', fontSize: '16px' };
-  const btnGreen = { background: 'linear-gradient(45deg, #1ed760, #a2f9c1)', color: '#000', border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900' as const, cursor: 'pointer', fontSize: '16px' };
 
   useEffect(() => {
-    async function init() {
+    async function getProfile() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        setUser(user)
-        const status = await getSubscriptionStatus()
-        setCurrentPlan(status?.label || 'المجانية')
-        const channel = supabase.channel(`user-updates-${user.id}`).on('broadcast', { event: 'plan-activated' }, (payload) => {
-            setCurrentPlan(payload.payload.plan)
-            Swal.fire({ title: 'تفعيل 🚀', text: `حسابك الآن: ${payload.payload.plan}`, icon: 'success', background: '#0a0a0a', color: '#d4af37' })
-          }).subscribe()
-        return () => { supabase.removeChannel(channel) }
+        const { data } = await supabase.from('profiles').select('plan_name').eq('id', user.id).single()
+        if (data) setCurrentPlan(data.plan_name || 'مجاني')
       }
     }
-    init()
+    getProfile()
   }, [])
 
-  const handleProcess = async (planName: string, price: number) => {
-    const { value: sender } = await Swal.fire({ title: 'بيانات التحويل', input: 'text', inputLabel: `باقة ${planName} - ${price} ج.م`, inputPlaceholder: 'رقم المحفظة', showCancelButton: true, background: '#0a0a0a', color: '#d4af37' })
-    if (!sender) return
+  const handleUpgrade = async (plan: string) => {
     setLoading(true)
-    const { error } = await supabase.from('subscriptions_requests').insert([{ user_id: user.id, plan_name: planName, amount: price, sender_number: sender, status: 'pending' }])
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    const { error } = await supabase.from('subscriptions_requests').insert({
+      user_id: user?.id,
+      plan_name: plan,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    })
+
     if (!error) {
-      setLoading(false)
-      Swal.fire({ title: 'تم الطلب ✅', text: 'حول للواتساب الآن', icon: 'success', background: '#0a0a0a' }).then(() => {
-        window.open(`https://wa.me/201019672878?text=طلب باقة ${planName}`, '_blank')
+      Swal.fire({
+        title: 'تم إرسال الطلب! 🚀',
+        text: 'سيقوم المسؤول بتفعيل باقتك خلال دقائق بعد التأكد من التحويل.',
+        icon: 'success',
+        background: '#0a0a0a',
+        color: '#fff'
       })
     }
+    setLoading(false)
   }
 
-  const Feature = ({ text }: { text: string }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', color: '#ccc' }}>
-      <CheckCircle2 size={16} color="#d4af37" />
-      <span style={{ fontSize: '14px' }}>{text}</span>
-    </div>
-  )
-
   return (
-    <div style={{ background: '#050505', color: '#fff', minHeight: '100vh', padding: '40px 20px', direction: 'rtl' }}>
-      <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-        <h1 style={{ fontSize: '36px', fontWeight: '900', color: '#d4af37' }}>مزايا بريميوم</h1>
-        <div style={{ marginTop: '20px', background: 'rgba(212, 175, 55, 0.1)', padding: '12px 30px', borderRadius: '50px', border: '1px solid #d4af3733', display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-          <Star size={18} color="#d4af37" />
-          باقتك: <span style={{ color: '#d4af37', fontWeight: '900' }}>{currentPlan}</span>
+    <div className="p-6 text-white min-h-screen bg-[#050505]">
+      <h1 className="text-3xl font-bold text-center mb-2">ترقية الحساب</h1>
+      <p className="text-gray-400 text-center mb-12">اختر الباقة المناسبة لتوسيع تجارتك</p>
+
+      <div className="flex flex-wrap justify-center gap-8">
+        {/* الباقة الاحترافية */}
+        <div className={`w-full max-w-sm p-8 rounded-[2rem] border transition-all ${currentPlan === 'احترافية' ? 'border-[#d4af37] bg-[#d4af37]/5' : 'border-white/10 bg-[#0a0a0a]'}`}>
+          <Star className="text-[#d4af37] mb-4" size={40} />
+          <h2 className="text-2xl font-bold mb-2">احترافية</h2>
+          <p className="text-3xl font-black mb-6">100 ج.م <span className="text-sm font-normal text-gray-500">/شهرياً</span></p>
+          <ul className="space-y-3 mb-8 text-gray-300">
+            <li className="flex gap-2"><Check className="text-green-500" size={18}/> مناديب شحن غير محدودين</li>
+            <li className="flex gap-2"><Check className="text-green-500" size={18}/> تقارير رادار متقدمة</li>
+            <li className="flex gap-2"><Check className="text-green-500" size={18}/> إدارة CRM كاملة</li>
+          </ul>
+          <button 
+            onClick={() => handleUpgrade('احترافية')}
+            disabled={currentPlan === 'احترافية' || loading}
+            className="w-full py-3 rounded-xl bg-[#d4af37] text-black font-bold disabled:opacity-50"
+          >
+            {currentPlan === 'احترافية' ? 'باققتك الحالية' : 'اطلب الترقية الآن'}
+          </button>
         </div>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center' }}>
-        <div style={{ ...cardStyle, border: currentPlan === 'الاحترافية' ? '2px solid #d4af37' : '1px solid #1a1a1a' }}>
-          {currentPlan === 'الاحترافية' && <div style={activeBadge}>نشطة</div>}
-          <Zap size={50} color="#d4af37" style={{ marginBottom: '20px' }} />
-          <h2>الاحترافية</h2>
-          <div style={{ fontSize: '30px', margin: '15px 0' }}>99 ج.م</div>
-          <Feature text="منتجات غير محدودة" /><Feature text="رادار متقدم" />
-          <button onClick={() => handleProcess('احترافية', 99)} disabled={loading || currentPlan === 'الاحترافية'} style={btnGold}>اشترك</button>
-        </div>
-        <div style={{ ...cardStyle, border: currentPlan === 'البيزنس' ? '2px solid #1ed760' : '1px solid #1a1a1a' }}>
-          {currentPlan === 'البيزنس' && <div style={{...activeBadge, background:'#1ed760'}}>نشطة</div>}
-          <Crown size={50} color="#1ed760" style={{ marginBottom: '20px' }} />
-          <h2>البيزنس</h2>
-          <div style={{ fontSize: '30px', margin: '15px 0', color:'#1ed760' }}>199 ج.م</div>
-          <Feature text="كل مميزات الاحترافية" /><Feature text="ذكاء اصطناعي إعلاني" />
-          <button onClick={() => handleProcess('بيزنس', 199)} disabled={loading || currentPlan === 'البيزنس'} style={btnGreen}>تطوير</button>
+
+        {/* باقة البيزنس */}
+        <div className={`w-full max-w-sm p-8 rounded-[2rem] border transition-all ${currentPlan === 'البيزنس' ? 'border-green-500 bg-green-500/5' : 'border-white/10 bg-[#0a0a0a]'}`}>
+          <Crown className="text-green-500 mb-4" size={40} />
+          <h2 className="text-2xl font-bold mb-2">البيزنس</h2>
+          <p className="text-3xl font-black mb-6">250 ج.م <span className="text-sm font-normal text-gray-500">/شهرياً</span></p>
+          <ul className="space-y-3 mb-8 text-gray-300">
+            <li className="flex gap-2"><Check className="text-green-500" size={18}/> كل مميزات الاحترافية</li>
+            <li className="flex gap-2"><Check className="text-green-500" size={18}/> أولوية في دعم العملاء</li>
+            <li className="flex gap-2"><Check className="text-green-500" size={18}/> إحصائيات نمو ذكية</li>
+          </ul>
+          <button 
+            onClick={() => handleUpgrade('البيزنس')}
+            disabled={currentPlan === 'البيزنس' || loading}
+            className="w-full py-3 rounded-xl bg-green-500 text-black font-bold disabled:opacity-50"
+          >
+            {currentPlan === 'البيزنس' ? 'باققتك الحالية' : 'اطلب الترقية الآن'}
+          </button>
         </div>
       </div>
     </div>

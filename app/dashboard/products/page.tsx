@@ -3,20 +3,27 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { formatPrice } from '@/lib/utils'
-import { Plus, Pencil, Trash2, AlertTriangle, Package, Box, ExternalLink, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Package, Box, Search, Star } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function ProductsPage() {
   const supabase = createClient()
   const [products, setProducts] = useState<any[]>([])
+  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase.from('products').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
-    setProducts(data || [])
+    
+    const [prodsData, profData] = await Promise.all([
+      supabase.from('products').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('profiles').select('plan_name').eq('id', user.id).single()
+    ])
+
+    setProducts(prodsData.data || [])
+    setProfile(profData.data)
     setLoading(false)
   }
 
@@ -25,7 +32,7 @@ export default function ProductsPage() {
   const deleteProduct = async (id: string) => {
     const result = await Swal.fire({
       title: 'حذف المنتج؟',
-      text: "سيتم حذف المنتج وجميع بياناته من المخزن نهائياً",
+      text: "سيتم حذف المنتج نهائياً من مخزنك",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e74c3c',
@@ -46,6 +53,7 @@ export default function ProductsPage() {
   }
 
   const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+  const isPremium = profile?.plan_name === 'البيزنس' || profile?.plan_name === 'الاحترافية'
 
   if (loading) return <div style={{display:'flex',justifyContent:'center',padding:'5rem'}}><div className="animate-spin" style={{width:30,height:30,border:'3px solid #D4AF37',borderTopColor:'transparent',borderRadius:'50%'}}/></div>
 
@@ -56,17 +64,23 @@ export default function ProductsPage() {
           <h1 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#D4AF37', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Box size={28} /> المخزن الرقمي
           </h1>
-          <p style={{ color: '#444', fontSize: '0.85rem' }}>إدارة مخزونك وتسعير منتجاتك (تحت الرقابة الذكية)</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '5px' }}>
+            <p style={{ color: '#444', fontSize: '0.85rem', margin: 0 }}>إدارة مخزونك (تحت الرقابة الذكية)</p>
+            {!isPremium && (
+              <span style={{ fontSize: '0.7rem', color: '#D4AF37', background: 'rgba(212,175,55,0.1)', padding: '2px 8px', borderRadius: '10px', border: '1px solid rgba(212,175,55,0.2)' }}>
+                استهلاك الباقة: {products.length} / 10
+              </span>
+            )}
+          </div>
         </div>
         <Link href="/dashboard/products/new" style={{ background: '#D4AF37', color: '#000', padding: '0.8rem 1.5rem', borderRadius: '12px', fontWeight: 900, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Plus size={18} /> منتج جديد
         </Link>
       </header>
 
-      {/* Search & Filter */}
       <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
         <Search size={18} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#444' }} />
-        <input style={{ width: '100%', background: '#111', border: '1px solid #222', padding: '0.9rem 2.8rem 0.9rem 1rem', borderRadius: '15px', color: '#fff' }} 
+        <input style={{ width: '100%', background: '#111', border: '1px solid #222', padding: '0.9rem 2.8rem 0.9rem 1rem', borderRadius: '15px', color: '#fff', outline: 'none' }} 
           placeholder="ابحث عن منتج..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
@@ -89,7 +103,6 @@ export default function ProductsPage() {
                 </div>
                 <div style={{ textAlign: 'left' }}>
                   <div style={{ color: '#D4AF37', fontWeight: 900 }}>{formatPrice(p.price)}</div>
-                  <div style={{ fontSize: '0.7rem', color: '#e74c3c' }}>تكلفة: {formatPrice(p.cost || 0)}</div>
                 </div>
               </div>
 
@@ -98,9 +111,6 @@ export default function ProductsPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.8rem', color: (p.stock || 0) < 5 ? '#e74c3c' : '#2ecc71' }}>
                     <Box size={14} /> {p.stock || 0} في المخزن
                   </div>
-                  <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '6px', background: p.is_active ? '#2ecc7120' : '#4442', color: p.is_active ? '#2ecc71' : '#444' }}>
-                    {p.is_active ? 'نشط' : 'مسودة'}
-                  </span>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <Link href={`/dashboard/products/${p.id}/edit`} style={{ color: '#D4AF37', background: '#D4AF3715', padding: '8px', borderRadius: '10px' }}><Pencil size={16} /></Link>
