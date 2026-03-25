@@ -10,7 +10,7 @@ export default function AdminDashboard() {
   const supabase = createClient()
 
   useEffect(() => {
-    async function getStats() {
+    async async function getStats() {
       const { count: t } = await supabase.from("profiles").select("*", { count: "exact", head: true });
       const { count: p } = await supabase.from("products").select("*", { count: "exact", head: true });
       const { data: subs } = await supabase.from("profiles").select("plan_name").neq("plan_name", "مجاني");

@@ -8,7 +8,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, Sparkles } from 'lucide-react'
 
 export default function RegisterForm() {
   const [email, setEmail] = useState('')
-  const [password, options: { data: { shop_name: shopName }, emailRedirectTo: `${window.location.origin}/auth/callback` }, setPassword] = useState('')
+  const [password, setPassword] = useState('')
   const [shopName, setShopName] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
