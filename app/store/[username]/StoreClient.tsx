@@ -56,12 +56,9 @@ export function StoreClient({ profile, products: initialProducts }: { profile: a
         source: 'online_store',
         order_status: 'pending',
             total_amount: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
-        source: 'online_store',
         status: 'pending',
-        order_status: 'pending',
             p_items: cart.map(i => ({ product_id: i.id, product_name: i.name, unit_price: i.price, quantity: i.quantity }))
         })
-
         if (error) throw error
 
         confetti({ particleCount: 150, spread: 70, origin: { y: 0.5 } })

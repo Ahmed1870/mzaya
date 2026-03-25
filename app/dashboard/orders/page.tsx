@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase'
 
 export default function OrdersPage() {
   const supabase = createClient()
-  const [orders, setOrders] = useState([])
+  const [orders, setOrders] = useState<any[]>([])
   const [businessName, setBusinessName] = useState('متجري')
 
   useEffect(() => {

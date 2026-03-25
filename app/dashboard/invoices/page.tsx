@@ -84,7 +84,7 @@ export default function InvoicesPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-lg">{inv.customer_name || 'عميل نقدي'}</h3>
-                    {inv.source === 'online_store' && <Globe size={14} className="text-blue-400" title="طلب من المتجر" />}
+                    {inv.source === 'online_store' && <Globe size={14} className="text-blue-400"  />}
                   </div>
                   <p className="text-xs text-gray-600">#{inv.id.slice(0,8).toUpperCase()} • {new Date(inv.created_at).toLocaleDateString('ar-EG')}</p>
                 </div>
