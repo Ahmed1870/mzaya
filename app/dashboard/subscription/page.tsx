@@ -1,7 +1,7 @@
 'use client'
 import { createClient } from '@/lib/supabase'
 import { useState, useEffect } from 'react'
-import { Crown, Zap, CheckCircle2, Star, ShieldCheck } from 'lucide-react'
+import { Crown, Zap, CheckCircle2, Star, ShieldCheck, Rocket, Wallet, MessageSquare } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function SubscriptionPage() {
@@ -9,44 +9,57 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(false)
   const [currentPlan, setCurrentPlan] = useState('تحميل...')
   const [user, setUser] = useState<any>(null)
-
-  const cardStyle = { background: '#0a0a0a', padding: '50px 40px', borderRadius: '35px', width: '350px', textAlign: 'center' as const, position: 'relative' as const, transition: '0.3s ease', border: '1px solid #1a1a1a' };
-  const activeBadge = { position: 'absolute' as const, top: '-15px', left: '50%', transform: 'translateX(-50%)', background: '#d4af37', color: '#000', padding: '5px 20px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' as const };
-  const btnGold = { background: 'linear-gradient(45deg, #d4af37, #fbf5b7)', color: '#000', border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900' as const, cursor: 'pointer', fontSize: '16px', transition: '0.3s' };
-  const btnGreen = { background: 'linear-gradient(45deg, #1ed760, #a2f9c1)', color: '#000', border: 'none', padding: '18px', width: '100%', borderRadius: '18px', fontWeight: '900' as const, cursor: 'pointer', fontSize: '16px', transition: '0.3s' };
+  const [profile, setProfile] = useState<any>(null)
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
-        const { data: profile } = await supabase.from('profiles').select('plan_name').eq('id', user.id).single()
-        setCurrentPlan(profile?.plan_name || 'مجانية')
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (authUser) {
+        setUser(authUser)
+        const { data: prof } = await supabase.from('profiles').select('*').eq('id', authUser.id).single()
+        setProfile(prof)
+        setCurrentPlan(prof?.plan_name || 'مجانية')
       }
     }
     init()
   }, [])
 
   const handleProcess = async (planName: string, price: number) => {
-    const { value: sender } = await Swal.fire({ 
-      title: 'تأكيد طلب الاشتراك', 
-      text: `أنت الآن تطلب باقة "${planName}" بسعر ${price} ج.م شهرياً.`,
-      input: 'text', 
-      inputLabel: 'أدخل رقم المحفظة المحول منها (فودافون كاش)', 
-      inputPlaceholder: '01xxxxxxxxx', 
-      showCancelButton: true, 
-      confirmButtonText: 'إرسال الطلب',
+    const { value: formValues } = await Swal.fire({
+      title: `<span style="color: #d4af37; font-family: 'IBM Plex Sans Arabic', sans-serif;">تأكيد طلب باقة ${planName}</span>`,
+      html: `
+        <div style="text-align: right; direction: rtl; font-family: 'IBM Plex Sans Arabic', sans-serif;">
+          <p style="color: #666; font-size: 14px; margin-bottom: 20px;">أهلاً بك في عائلة مزايا! يرجى ملء البيانات لتأكيد اشتراكك.</p>
+          <label style="display: block; font-size: 12px; color: #d4af37; margin-bottom: 5px;">الاسم بالكامل</label>
+          <input id="swal-input1" class="swal2-input" style="width: 80%; margin: 0 auto 15px auto; background: #111; border: 1px solid #333; color: #fff; border-radius: 12px;" value="${profile?.full_name || ''}">
+          
+          <label style="display: block; font-size: 12px; color: #d4af37; margin-bottom: 5px;">رقم المحفظة (المحول منه)</label>
+          <input id="swal-input2" class="swal2-input" style="width: 80%; margin: 0 auto 15px auto; background: #111; border: 1px solid #333; color: #fff; border-radius: 12px;" placeholder="01xxxxxxxxx">
+          
+          <p style="font-size: 11px; color: #444; margin-top: 10px;">* يتم التحويل لمبلغ <b>${price} ج.م</b> على رقم: <b>01019672878</b></p>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'تأكيد وإرسال للآدمن',
       cancelButtonText: 'إلغاء',
-      background: '#0a0a0a', 
+      background: '#0a0a0a',
       color: '#fff',
-      confirmButtonColor: '#d4af37'
+      confirmButtonColor: '#d4af37',
+      preConfirm: () => {
+        return [
+          (document.getElementById('swal-input1') as HTMLInputElement).value,
+          (document.getElementById('swal-input2') as HTMLInputElement).value
+        ]
+      }
     })
 
-    if (!sender) return
+    if (!formValues || !formValues[1]) return
 
-    if (loading) return
+    const [fullName, senderPhone] = formValues
     setLoading(true)
 
+    // التأكد من عدم وجود طلب معلق
     const { data: existing } = await supabase
       .from('subscriptions_requests')
       .select('id')
@@ -56,63 +69,81 @@ export default function SubscriptionPage() {
 
     if (existing) {
       setLoading(false)
-      Swal.fire({ title: 'تنبيه', text: 'لديك طلب قيد المراجعة بالفعل', icon: 'warning' })
+      Swal.fire({ title: 'تنبيه', text: 'لديك طلب قيد المراجعة بالفعل من قبل الإدارة.', icon: 'warning', background: '#0a0a0a', color: '#fff' })
       return
     }
 
+    // تسجيل الطلب في قاعدة البيانات
     const { error } = await supabase.from('subscriptions_requests').insert([
-      { 
-        user_id: user.id, 
-        plan_name: planName, 
-        amount: price, 
-        sender_number: sender, 
-        status: 'pending' 
+      {
+        user_id: user.id,
+        plan_name: planName,
+        amount: price,
+        sender_number: senderPhone,
+        status: 'pending',
+        metadata: { full_name: fullName }
       }
     ])
 
     if (!error) {
       setLoading(false)
-      Swal.fire({ 
-        title: 'تم إرسال طلبك ✅', 
-        text: 'يرجى إتمام عملية التحويل والتواصل معنا لتفعيل حسابك فوراً.', 
-        icon: 'success', 
+      Swal.fire({
+        title: 'تم تسجيل طلبك! 🚀',
+        text: 'جارٍ توجيهك الآن لواتساب الإدارة لتأكيد التفعيل الفوري.',
+        icon: 'success',
         background: '#0a0a0a',
-        color: '#fff'
-      }).then(() => {
-        window.open(`https://wa.me/201019672878?text=أهلاً مزايا، أرسلت طلب باقة ${planName} من رقم ${sender}. يرجى التفعيل.`, '_blank')
+        color: '#fff',
+        timer: 3000,
+        showConfirmButton: false
       })
+
+      // فتح الواتساب برسالة احترافية
+      setTimeout(() => {
+        const message = `أهلاً إدارة مزايا، أنا التاجر: ${fullName || user.email}%0Aأرغب في تفعيل باقة: ${planName}%0Aتم تحويل مبلغ: ${price} ج.م%0Aمن رقم: ${senderPhone}%0Aيرجى مراجعة الطلب والتفعيل.`;
+        window.open(`https://wa.me/201019672878?text=${message}`, '_blank')
+      }, 1500)
     } else {
       setLoading(false)
-      Swal.fire({ title: 'خطأ', text: 'حدثت مشكلة أثناء إرسال الطلب، حاول مرة أخرى.', icon: 'error' })
+      Swal.fire({ title: 'خطأ', text: 'فشل إرسال الطلب، تأكد من اتصالك بالإنترنت.', icon: 'error', background: '#0a0a0a', color: '#fff' })
     }
   }
 
   const Feature = ({ text, active = true }: { text: string, active?: boolean }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', color: active ? '#ccc' : '#444' }}>
-      <CheckCircle2 size={16} color={active ? "#d4af37" : "#222"} />
-      <span style={{ fontSize: '14px', textDecoration: active ? 'none' : 'line-through' }}>{text}</span>
+    <div className="flex items-center gap-3 mb-3" style={{ opacity: active ? 1 : 0.3 }}>
+      <CheckCircle2 size={16} className={active ? "text-[#d4af37]" : "text-gray-800"} />
+      <span className="text-sm font-medium">{text}</span>
     </div>
   )
 
   return (
-    <div style={{ background: '#050505', color: '#fff', minHeight: '100vh', padding: '40px 20px', direction: 'rtl', fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}>
-      <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-        <h1 style={{ fontSize: '36px', fontWeight: '900', color: '#d4af37' }}>باقات مزايا</h1>
-        <p style={{ color: '#666', marginTop: '10px' }}>اختر الباقة المناسبة لنمو تجارتك</p>
-        <div style={{ marginTop: '20px', background: 'rgba(212, 175, 55, 0.05)', padding: '12px 30px', borderRadius: '50px', border: '1px solid #d4af3722', display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-          <Star size={18} color="#d4af37" />
-          باقتك الحالية: <span style={{ color: '#d4af37', fontWeight: '900' }}>{currentPlan}</span>
+    <div className="min-h-screen bg-[#050505] text-white p-6 lg:p-12" style={{ direction: 'rtl', fontFamily: "'IBM Plex Sans Arabic', sans-serif" }}>
+      {/* Header */}
+      <div className="text-center mb-16">
+        <div className="inline-block p-3 bg-[#d4af37]/10 rounded-2xl mb-4">
+            <ShieldCheck size={40} className="text-[#d4af37]" />
+        </div>
+        <h1 className="text-4xl font-black mb-4">باقات الاشتراك</h1>
+        <p className="text-gray-500 max-w-md mx-auto">ارتقِ بتجارتك اليوم وانضم إلى نخبة التجار في "مزايا" واستمتع بمميزات لا محدودة.</p>
+        
+        <div className="mt-8 inline-flex items-center gap-3 px-6 py-2 bg-white/5 border border-white/10 rounded-full shadow-xl">
+           <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
+           <span className="text-sm">باقتك الحالية: <b className="text-[#d4af37]">{currentPlan}</b></span>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', justifyContent: 'center' }}>
-        {/* باقة الاحترافية */}
-        <div style={{ ...cardStyle, borderColor: currentPlan === 'الاحترافية' ? '#d4af37' : '#1a1a1a', transform: currentPlan === 'الاحترافية' ? 'scale(1.05)' : 'scale(1)' }}>
-          {currentPlan === 'الاحترافية' && <div style={activeBadge}>بصمتك الحالية</div>}
-          <Zap size={50} color="#d4af37" style={{ marginBottom: '20px' }} />
-          <h2 style={{ fontSize: '24px', fontWeight: '900' }}>الاحترافية</h2>
-          <div style={{ fontSize: '30px', margin: '15px 0', fontWeight: '900' }}>99 <span style={{fontSize:'14px'}}>ج.م / شهر</span></div>
-          <div style={{ textAlign: 'right', marginBottom: '30px' }}>
+      <div className="flex flex-wrap justify-center gap-8">
+        {/* الباقة الاحترافية */}
+        <div className={`w-full max-w-sm p-8 rounded-[3rem] border transition-all duration-500 ${currentPlan === 'الاحترافية' ? 'border-[#d4af37] bg-[#d4af37]/5 scale-105 shadow-[0_0_40px_rgba(212,175,55,0.1)]' : 'border-white/5 bg-[#0a0a0a]'}`}>
+          <div className="flex justify-between items-start mb-8">
+            <Zap size={40} className="text-[#d4af37]" />
+            {currentPlan === 'الاحترافية' && <span className="bg-[#d4af37] text-black text-[10px] px-3 py-1 rounded-full font-black">نشطة حالياً</span>}
+          </div>
+          <h2 className="text-2xl font-black mb-2">الاحترافية</h2>
+          <div className="flex items-baseline gap-1 mb-8">
+            <span className="text-4xl font-black">99</span>
+            <span className="text-gray-500 text-sm">ج.م / شهرياً</span>
+          </div>
+          <div className="space-y-1 mb-10">
             <Feature text="رفع عدد لا نهائي من المنتجات" />
             <Feature text="رادار العملاء (محدود)" />
             <Feature text="تقارير المبيعات الشهرية" />
@@ -120,21 +151,26 @@ export default function SubscriptionPage() {
             <Feature text="الذكاء الاصطناعي" active={false} />
           </div>
           <button 
-            onClick={() => handleProcess('الاحترافية', 99)} 
-            disabled={loading || currentPlan === 'الاحترافية' || currentPlan === 'البيزنس'} 
-            style={{...btnGold, opacity: (currentPlan === 'الاحترافية' || currentPlan === 'البيزنس') ? 0.5 : 1, cursor: (currentPlan === 'الاحترافية' || currentPlan === 'البيزنس') ? 'default' : 'pointer'}}
+            onClick={() => handleProcess('الاحترافية', 99)}
+            disabled={loading || currentPlan === 'الاحترافية' || currentPlan === 'البيزنس'}
+            className="w-full py-4 rounded-2xl font-black transition-all bg-gradient-to-r from-[#d4af37] to-[#fbf5b7] text-black shadow-lg active:scale-95 disabled:opacity-30"
           >
-            {currentPlan === 'الاحترافية' || currentPlan === 'البيزنس' ? 'مفعلة' : 'اشترك الآن'}
+            {currentPlan === 'الاحترافية' || currentPlan === 'البيزنس' ? 'باقة مفعلة' : 'اشترك الآن'}
           </button>
         </div>
 
         {/* باقة البيزنس */}
-        <div style={{ ...cardStyle, borderColor: currentPlan === 'البيزنس' ? '#1ed760' : '#1a1a1a', transform: currentPlan === 'البيزنس' ? 'scale(1.05)' : 'scale(1)' }}>
-          {currentPlan === 'البيزنس' && <div style={{...activeBadge, background:'#1ed760'}}>أنت الآن في القمة</div>}
-          <Crown size={50} color="#1ed760" style={{ marginBottom: '20px' }} />
-          <h2 style={{ fontSize: '24px', fontWeight: '900' }}>البيزنس</h2>
-          <div style={{ fontSize: '30px', margin: '15px 0', fontWeight: '900', color: '#1ed760' }}>199 <span style={{fontSize:'14px'}}>ج.م / شهر</span></div>
-          <div style={{ textAlign: 'right', marginBottom: '30px' }}>
+        <div className={`w-full max-w-sm p-8 rounded-[3rem] border transition-all duration-500 ${currentPlan === 'البيزنس' ? 'border-[#1ed760] bg-[#1ed760]/5 scale-105 shadow-[0_0_40px_rgba(30,215,96,0.1)]' : 'border-white/5 bg-[#0a0a0a]'}`}>
+          <div className="flex justify-between items-start mb-8">
+            <Crown size={40} className="text-[#1ed760]" />
+            {currentPlan === 'البيزنس' && <span className="bg-[#1ed760] text-black text-[10px] px-3 py-1 rounded-full font-black">الباقة القصوى</span>}
+          </div>
+          <h2 className="text-2xl font-black mb-2">البيزنس</h2>
+          <div className="flex items-baseline gap-1 mb-8">
+            <span className="text-4xl font-black text-[#1ed760]">199</span>
+            <span className="text-gray-500 text-sm">ج.م / شهرياً</span>
+          </div>
+          <div className="space-y-1 mb-10">
             <Feature text="كل مميزات الباقة الاحترافية" />
             <Feature text="رادار العملاء (كامل المزايا)" />
             <Feature text="مولد الإعلانات بالذكاء الاصطناعي" />
@@ -142,18 +178,20 @@ export default function SubscriptionPage() {
             <Feature text="تحليلات متقدمة لنمو المتجر" />
           </div>
           <button 
-            onClick={() => handleProcess('البيزنس', 199)} 
-            disabled={loading || currentPlan === 'البيزنس'} 
-            style={{...btnGreen, opacity: currentPlan === 'البيزنس' ? 0.5 : 1, cursor: currentPlan === 'البيزنس' ? 'default' : 'pointer'}}
+            onClick={() => handleProcess('البيزنس', 199)}
+            disabled={loading || currentPlan === 'البيزنس'}
+            className="w-full py-4 rounded-2xl font-black transition-all bg-gradient-to-r from-[#1ed760] to-[#a2f9c1] text-black shadow-lg active:scale-95 disabled:opacity-30"
           >
             {currentPlan === 'البيزنس' ? 'نشطة حالياً' : 'تطوير للبيزنس 🚀'}
           </button>
         </div>
       </div>
 
-      <p style={{ textAlign: 'center', marginTop: '40px', color: '#444', fontSize: '12px' }}>
-        * يتم تفعيل الباقة يدوياً بواسطة الإدارة بعد مراجعة عملية التحويل.
-      </p>
+      <div className="mt-16 text-center">
+        <p className="text-xs text-gray-600 flex items-center justify-center gap-2">
+            <ShieldCheck size={14} /> جميع المعاملات تتم مراجعتها يدوياً لضمان أعلى مستويات الأمان.
+        </p>
+      </div>
     </div>
   )
 }

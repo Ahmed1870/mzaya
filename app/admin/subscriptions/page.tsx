@@ -1,7 +1,8 @@
+import { CreditCard } from 'lucide-react'
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { ShieldCheck, Users, Package, Wallet, Clock, CreditCard, Award, Star } from 'lucide-react'
+import { ShieldCheck, Users, Package, Wallet, Clock, CheckCircle2, Star, Rocket, Gift } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function SuperAdminRadar() {
@@ -23,99 +24,138 @@ export default function SuperAdminRadar() {
 
       const { data: reqs } = await supabase
         .from('subscriptions_requests')
-        .select('*, profiles:user_id(shop_name)')
+        .select('*, profiles:user_id(shop_name, full_name)')
         .order('created_at', { ascending: false })
       setRequests(reqs || [])
 
-      // جلب الإحالات (تأكد من وجود عمود referrer_id في الـ profiles)
+      // جلب الإحالات المؤهلة (5 أو 10 إحالات)
       const { data: allProfiles } = await supabase.from('profiles').select('id, shop_name, plan_name')
-      
-      // حسبة بسيطة لو مفيش View جاهز
       const eligible = []
       for (const prof of allProfiles || []) {
-        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('referrer_id', prof.id)
+        const { count } = await supabase.from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('referrer_id', prof.id)
+          .neq('plan_name', 'مجانية') // شرطك: لازم المشتركين يكونوا فعلوا باقات
+        
         if (count && count >= 5) {
           eligible.push({ ...prof, referral_count: count })
         }
       }
-      setReferralRequests(eligible.filter(p => p.plan_name === 'مجانية' || p.plan_name === 'free'))
-    } catch (err) {
-      console.error("Error loading admin data:", err)
-    } finally {
-      setLoading(false)
-    }
+      setReferralRequests(eligible.filter(p => p.plan_name === 'مجانية' || p.plan_name === 'احترافية'))
+    } catch (err) { console.error(err) } finally { setLoading(false) }
   }
 
   useEffect(() => { loadAllData() }, [])
 
-  const handleActivate = async (req: any) => {
+  const handleActivate = async (req: any, type: 'paid' | 'gift' = 'paid') => {
+    const planToSet = req.plan_name;
     const { isConfirmed } = await Swal.fire({
-      title: 'تأكيد التفعيل المالي',
-      text: `تفعيل باقة ${req.plan_name} لمتجر ${req.profiles?.shop_name}؟`,
-      icon: 'warning',
+      title: type === 'paid' ? 'تأكيد التفعيل المالي' : 'تأكيد مكافأة الإحالة',
+      text: `تفعيل باقة ${planToSet} لمتجر ${req.profiles?.shop_name || req.shop_name}؟`,
+      icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'نعم، فعل الحساب',
-      background: '#050505', color: '#fff'
+      confirmButtonText: 'نعم، تفعيل الآن',
+      background: '#0a0a0a', color: '#fff', confirmButtonColor: '#d4af37'
     })
 
     if (isConfirmed) {
-      // 1. نجيب تفاصيل الباقة (المخزن والحدود)
-      const { data: planInfo } = await supabase.from('subscription_plans').select('max_products').eq('plan_id', req.plan_name).single()
-      
-      // 2. تحديث الطلب
-      await supabase.from('subscriptions_requests').update({ status: 'approved' }).eq('id', req.id)
-      
-      // 3. تحديث البروفايل (الباقة + الليميت)
-      await supabase.from('profiles').update({ 
-        plan_name: req.plan_name, 
-        max_products: planInfo?.max_products || 50,
-        subscription_status: 'active',
-        upgrade_requested: false,
-        updated_at: new Date().toISOString() 
-      }).eq('id', req.user_id)
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
 
-      Swal.fire({ icon: 'success', title: 'تم التفعيل وترقية الحدود ✅', background: '#050505', color: '#fff' })
+      // 1. تحديث البروفايل (فتح كل الصلاحيات)
+      const { error: profileErr } = await supabase.from('profiles').update({
+        plan_name: planToSet,
+        is_subscribed: true,
+        subscription_status: 'active',
+        subscription_activated_at: new Date().toISOString(),
+        subscription_end_date: expiryDate.toISOString(),
+        max_products: planToSet === 'البيزنس' ? 999999 : 500, // فتح الحدود
+        upgrade_requested: false
+      }).eq('id', req.user_id || req.id)
+
+      if (profileErr) return Swal.fire('خطأ', 'فشل تحديث البروفايل', 'error');
+
+      // 2. تحديث حالة الطلب لو كان طلب مالي
+      if (type === 'paid' && req.id) {
+        await supabase.from('subscriptions_requests').update({ status: 'approved' }).eq('id', req.id)
+      }
+
+      // 3. إرسال إشعار داخلي للتاجر
+      await supabase.from('notifications').insert([{
+        user_id: req.user_id || req.id,
+        title: 'مبروك! تم تفعيل باقتك 🚀',
+        message: `تم تفعيل باقة ${planToSet} بنجاح. يمكنك الآن استخدام كافة المميزات لمدة 30 يوم.`,
+        type: 'subscription'
+      }])
+
+      Swal.fire({ icon: 'success', title: 'تم التفعيل وفتح المميزات ✅', background: '#0a0a0a', color: '#fff' })
       loadAllData()
     }
   }
 
   return (
-    <div style={{ background: '#050505', color: '#d4af37', minHeight: '100vh', padding: '25px', direction: 'rtl' }}>
-      <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><ShieldCheck size={30}/> رادار التحكم الفائق</h1>
-      {loading ? <p>جاري فحص الشبكة...</p> : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', margin: '20px 0' }}>
-            <div style={sCard}><Users/> {stats.traders} تاجر</div>
-            <div style={sCard}><Package/> {stats.products} منتج</div>
-            <div style={sCard}><Wallet/> {stats.revenue} ج.م</div>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-            <button onClick={() => setActiveTab('money')} style={{...tabBtn, background: activeTab === 'money' ? '#d4af37' : '#111'}}>طلبات مالية</button>
-            <button onClick={() => setActiveTab('referral')} style={{...tabBtn, background: activeTab === 'referral' ? '#d4af37' : '#111'}}>مكافآت ({referralRequests.length})</button>
-          </div>
+    <div className="min-h-screen bg-[#050505] text-[#d4af37] p-8" style={{ direction: 'rtl', fontFamily: 'sans-serif' }}>
+      <div className="flex justify-between items-center mb-10">
+        <h1 className="text-3xl font-black flex items-center gap-3"><ShieldCheck size={40}/> رادار الإدارة العليـا</h1>
+        <div className="flex gap-4">
+            <div className="bg-[#111] p-4 rounded-2xl border border-white/5 text-center min-w-[120px]">
+                <p className="text-gray-500 text-xs">إجمالي التجار</p>
+                <p className="text-xl font-bold text-white">{stats.traders}</p>
+            </div>
+            <div className="bg-[#111] p-4 rounded-2xl border border-white/5 text-center min-w-[120px]">
+                <p className="text-gray-500 text-xs">إجمالي الأرباح</p>
+                <p className="text-xl font-bold text-green-500">{stats.revenue} ج.م</p>
+            </div>
+        </div>
+      </div>
 
-          <div style={listContainer}>
-            {activeTab === 'money' ? requests.map(req => (
-              <div key={req.id} style={reqItem}>
-                <span>{req.profiles?.shop_name} ({req.plan_name})</span>
-                {req.status === 'pending' ? <button onClick={() => handleActivate(req)} style={actBtn}>تفعيل</button> : <span>✅</span>}
-              </div>
-            )) : referralRequests.map(u => (
-              <div key={u.id} style={reqItem}>
-                <span>{u.shop_name} - {u.referral_count} إحالة</span>
-                <button onClick={() => handleActivate({user_id: u.id, plan_name: 'احترافية', profiles: u})} style={actBtn}>ترقية مجانية</button>
-              </div>
-            ))}
+      <div className="flex gap-2 mb-8 bg-[#111] p-1 rounded-2xl w-fit">
+        <button onClick={() => setActiveTab('money')} className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'money' ? 'bg-[#d4af37] text-black shadow-lg' : 'text-gray-500'}`}>طلبات الاشتراك ({requests.filter(r=>r.status==='pending').length})</button>
+        <button onClick={() => setActiveTab('referral')} className={`px-8 py-3 rounded-xl font-bold transition-all ${activeTab === 'referral' ? 'bg-[#d4af37] text-black shadow-lg' : 'text-gray-500'}`}>مكافآت الإحالة ({referralRequests.length})</button>
+      </div>
+
+      <div className="bg-[#0a0a0a] rounded-[2.5rem] border border-white/5 overflow-hidden">
+        {loading ? (
+          <div className="p-20 text-center animate-pulse">جاري فحص قاعدة البيانات...</div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {activeTab === 'money' ? (
+              requests.length > 0 ? requests.map(req => (
+                <div key={req.id} className="p-6 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-white/5 rounded-2xl"><CreditCard size={20}/></div>
+                    <div>
+                        <p className="text-white font-bold">{req.profiles?.shop_name || 'متجر غير معروف'}</p>
+                        <p className="text-xs text-gray-500">الباقة: {req.plan_name} | رقم المحول: {req.sender_number}</p>
+                    </div>
+                  </div>
+                  {req.status === 'pending' ? (
+                    <button onClick={() => handleActivate(req, 'paid')} className="bg-[#d4af37] text-black px-6 py-2 rounded-xl font-black hover:scale-105 active:scale-95 transition-all">تفعيل الآن</button>
+                  ) : <span className="text-green-500 font-bold flex items-center gap-1"><CheckCircle2 size={16}/> تم التفعيل</span>}
+                </div>
+              )) : <div className="p-20 text-center text-gray-600 font-bold">لا توجد طلبات معلقة</div>
+            ) : (
+              referralRequests.length > 0 ? referralRequests.map(u => {
+                const targetPlan = u.referral_count >= 10 ? 'البيزنس' : 'الاحترافية';
+                return (
+                  <div key={u.id} className="p-6 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-blue-500/10 rounded-2xl text-blue-500"><Gift size={20}/></div>
+                      <div>
+                          <p className="text-white font-bold">{u.shop_name}</p>
+                          <p className="text-xs text-gray-500">لديه {u.referral_count} إحالة نشطة | مستحق لباقة: {targetPlan}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleActivate({id: u.id, plan_name: targetPlan, shop_name: u.shop_name}, 'gift')} className="bg-blue-600 text-white px-6 py-2 rounded-xl font-black hover:bg-blue-500 transition-all flex items-center gap-2">
+                        <Rocket size={16}/> ترقية مجانية
+                    </button>
+                  </div>
+                )
+              }) : <div className="p-20 text-center text-gray-600 font-bold">لا يوجد تجار مؤهلين للمكافآت حالياً</div>
+            )}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   )
 }
-
-const sCard: React.CSSProperties = { background: '#111', padding: '15px', borderRadius: '15px', border: '1px solid #222', display:'flex', flexDirection:'column', alignItems:'center' }
-const listContainer = { background: '#111', borderRadius: '20px', padding: '10px' }
-const reqItem = { display: 'flex', justifyContent: 'space-between', padding: '15px', borderBottom: '1px solid #222' }
-const actBtn = { background: '#d4af37', color: '#000', border: 'none', padding: '5px 15px', borderRadius: '8px', cursor: 'pointer' }
-const tabBtn = { flex: 1, padding: '10px', borderRadius: '10px', color: '#fff', cursor: 'pointer' }
