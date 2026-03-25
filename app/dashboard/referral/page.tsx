@@ -107,7 +107,7 @@ export default function ReferralPage() {
       <div className="bg-[#111] p-6 rounded-[2rem] border border-white/5 text-center">
          <p className="text-gray-400 text-sm mb-4">لينك الإحالة الخاص بك:</p>
          <div className="flex items-center gap-2 bg-black p-4 rounded-xl border border-white/10 justify-center group">
-            <code className="text-[#D4AF37] text-xs md:text-sm">https://mzaya.app/auth/register?ref={user?.id}</code>
+            <code className="text-[#D4AF37] text-xs md:text-sm">https://mzaya.vercel.app/auth/register?ref={user?.id}</code>
          </div>
       </div>
     </div>

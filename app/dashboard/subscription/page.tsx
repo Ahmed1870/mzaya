@@ -100,7 +100,7 @@ export default function SubscriptionPage() {
       // فتح الواتساب برسالة احترافية
       setTimeout(() => {
         const message = `أهلاً إدارة مزايا، أنا التاجر: ${fullName || user.email}%0Aأرغب في تفعيل باقة: ${planName}%0Aتم تحويل مبلغ: ${price} ج.م%0Aمن رقم: ${senderPhone}%0Aيرجى مراجعة الطلب والتفعيل.`;
-        window.open(`https://wa.me/201019672878?text=${message}`, '_blank')
+        window.open(`https://wa.me/201019672878?text=${encodeURIComponent("يا آدمن، أنا التاجر " + (profile?.full_name || "جديد") + " وعايز أفعل باقة " + selectedPlan)}
       }, 1500)
     } else {
       setLoading(false)

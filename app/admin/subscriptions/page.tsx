@@ -136,7 +136,7 @@ export default function SuperAdminRadar() {
               )) : <div className="p-20 text-center text-gray-600 font-bold">لا توجد طلبات معلقة</div>
             ) : (
               referralRequests.length > 0 ? referralRequests.map(u => {
-                const targetPlan = u.referral_count >= 10 ? 'البيزنس' : 'الاحترافية';
+                const targetPlan = u.referral_count >= 10 ? 'البيزنس' : 'احترافية';
                 return (
                   <div key={u.id} className="p-6 flex justify-between items-center hover:bg-white/[0.02] transition-colors">
                     <div className="flex items-center gap-4">
