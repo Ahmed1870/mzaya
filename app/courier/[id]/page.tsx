@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useParams } from 'next/navigation'
-import { User, Phone, MapPin, Package, CheckCircle2, Clock, Navigation, MessageSquare, Bike, ChevronLeft } from 'lucide-react'
+import { User, Phone, MapPin, Package, CheckCircle2, XCircle, Clock, Navigation, MessageSquare, Bike, ChevronLeft } from 'lucide-react'
 import Swal from 'sweetalert2'
 
 export default function CourierOrderConsole() {

@@ -114,7 +114,7 @@ export default function SuperAdminRadar() {
   )
 }
 
-const sCard = { background: '#111', padding: '15px', borderRadius: '15px', border: '1px solid #222', display:'flex', flexDirection:'column', alignItems:'center' }
+const sCard: React.CSSProperties = { background: '#111', padding: '15px', borderRadius: '15px', border: '1px solid #222', display:'flex', flexDirection:'column', alignItems:'center' }
 const listContainer = { background: '#111', borderRadius: '20px', padding: '10px' }
 const reqItem = { display: 'flex', justifyContent: 'space-between', padding: '15px', borderBottom: '1px solid #222' }
 const actBtn = { background: '#d4af37', color: '#000', border: 'none', padding: '5px 15px', borderRadius: '8px', cursor: 'pointer' }
