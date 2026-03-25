@@ -13,6 +13,8 @@ export default function NewInvoicePage() {
   const [customer, setCustomer] = useState({ name: '', phone: '' })
   const [discount, setDiscount] = useState(0)
   const [plan, setPlan] = useState('free')
+  const [couriers, setCouriers] = useState<any[]>([])
+  const [selectedCourier, setSelectedCourier] = useState('')
   const [saving, setSaving] = useState(false)
   const [done, setDone] = useState<any>(null)
 
@@ -23,9 +25,11 @@ export default function NewInvoicePage() {
         const [{ data: prds }, { data: prof }] = await Promise.all([
           supabase.from('products').select('*').eq('user_id', user.id).eq('is_active', true).gt('stock', 0),
           supabase.from('profiles').select('plan_name').eq('id', user.id).single()
+      const { data: dbCouriers } = await supabase.from('couriers').select('id, name').eq('user_id', user.id)
         ])
         setProducts(prds || [])
         setPlan(prof?.plan_name || 'free')
+      setCouriers(dbCouriers || [])
       }
     }
     load()
@@ -53,7 +57,7 @@ export default function NewInvoicePage() {
         customer_phone: customer.phone,
         total_amount: finalTotal,
         discount_amount: discount,
-        status: 'paid'
+        status: 'paid', courier_id: selectedCourier || null, order_status: selectedCourier ? 'out_for_delivery' : 'delivered'
       }).select().single()
       
       if (e) throw e
@@ -86,6 +90,10 @@ export default function NewInvoicePage() {
         <div style={{ background: '#111', padding: '1.2rem', borderRadius: '1.8rem', border: '1px solid #222' }}>
           <input style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '0.9rem', borderRadius: '12px', color: '#fff', marginBottom: '0.8rem' }} placeholder="اسم العميل" value={customer.name} onChange={e => setCustomer({ ...customer, name: e.target.value })} />
           <input style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '0.9rem', borderRadius: '12px', color: '#fff' }} placeholder="رقم واتساب" value={customer.phone} onChange={e => setCustomer({ ...customer, phone: e.target.value })} />
+            <select value={selectedCourier} onChange={e => setSelectedCourier(e.target.value)} style={{ width: '100%', background: '#050505', border: '1px solid #222', padding: '0.9rem', borderRadius: '12px', color: '#D4AF37', marginTop: '0.8rem', fontWeight: 800, outline: 'none' }}>
+              <option value="">🛵 اختيار مندوب للتوصيل (اختياري)</option>
+              {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
         </div>
 
         <div style={{ background: '#111', padding: '1.2rem', borderRadius: '1.8rem', border: '1px solid #222' }}>

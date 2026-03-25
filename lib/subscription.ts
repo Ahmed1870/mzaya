@@ -1,9 +1,9 @@
 import { createClient } from '@/lib/supabase'
 
 export const PLAN_CONFIGS = {
-  free: { label: 'المجانية', maxProducts: 5, canUseAI: false },
-  pro: { label: 'الاحترافية', maxProducts: 999999, canUseAI: false },
-  business: { label: 'البيزنس', maxProducts: 999999, canUseAI: true }
+  free: { label: 'المجانية', max_products: 5, canUseAI: false },
+  pro: { label: 'الاحترافية', max_products: 999999, canUseAI: false },
+  business: { label: 'البيزنس', max_products: 999999, canUseAI: true }
 }
 
 export async function getSubscriptionStatus() {
@@ -39,7 +39,7 @@ export async function getSubscriptionStatus() {
   return {
     plan: currentPlan,
     label: config.label,
-    maxLimit: currentPlan !== 'free' ? config.maxProducts : (profile?.max_products || 5),
+    maxLimit: currentPlan !== 'free' ? config.max_products : (profile?.max_products || 5),
     isUnlimited: currentPlan !== 'free',
     canUseAI: config.canUseAI
   }

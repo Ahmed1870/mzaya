@@ -16,6 +16,7 @@ const ORDER_STATUSES = [
 export default function OrdersPage() {
   const supabase = createClient()
   const [orders, setOrders] = useState<any[]>([])
+  const [couriers, setCouriers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [businessName, setBusinessName] = useState('')
@@ -24,13 +25,18 @@ export default function OrdersPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const [{ data: profile }, { data: dbOrders }] = await Promise.all([
+    const [{ data: profile }, { data: dbInvoices }, { data: dbCouriers }] = await Promise.all([
       supabase.from('profiles').select('business_name').eq('id', user.id).maybeSingle(),
-      supabase.from('orders').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      supabase.from('invoices').select('*, couriers(name, phone)').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('couriers').select('id, name').eq('user_id', user.id)
+    ])
+      supabase.from('profiles').select('business_name').eq('id', user.id).maybeSingle(),
+      supabase.from('invoices').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
     ])
 
     setBusinessName(profile?.business_name || 'متجري')
-    setOrders(dbOrders || [])
+    setOrders(dbInvoices || []);
+    setCouriers(dbCouriers || []);
     setLoading(false)
   }
 
@@ -40,7 +46,7 @@ export default function OrdersPage() {
     const { data: { user } } = await supabase.auth.getUser()
     
     try {
-      const { error } = await supabase.from('orders').update({ status: newStatus }).eq('id', orderId)
+      const { error } = await supabase.from('invoices').update({ status: newStatus }).eq('id', orderId)
       if (error) throw error
 
       // إذا تم التسليم: سجل العملية في المحفظة والمعاملات
@@ -133,6 +139,15 @@ export default function OrdersPage() {
                   <MessageCircle size={16}/> تحديث العميل
                 </button>
                 <div style={{ flex: 1, position: 'relative' }}>
+              {order.status === 'processing' && (
+                <select 
+                  onChange={(e) => updateStatus(order.id, 'out_for_delivery', order, e.target.value)}
+                  style={{ width: '100%', background: '#D4AF37', color: '#000', border: 'none', padding: '0.8rem', borderRadius: '12px', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 900 }}
+                >
+                  <option value=''>🛵 اختر مندوب لتسليمه الأوردر...</option>
+                  {couriers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              )}
                   <select 
                     value={order.status} 
                     onChange={(e) => updateStatus(order.id, e.target.value, order)}

@@ -44,7 +44,22 @@ export default function SubscriptionPage() {
 
     if (!sender) return
 
+    if (loading) return
     setLoading(true)
+
+    const { data: existing } = await supabase
+      .from('subscriptions_requests')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .maybeSingle()
+
+    if (existing) {
+      setLoading(false)
+      Swal.fire({ title: 'تنبيه', text: 'لديك طلب قيد المراجعة بالفعل', icon: 'warning' })
+      return
+    }
+
     const { error } = await supabase.from('subscriptions_requests').insert([
       { 
         user_id: user.id, 

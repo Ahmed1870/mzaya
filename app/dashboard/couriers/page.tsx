@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getUserPlan } from '@/lib/plans'
+import Swal from 'sweetalert2'
 import { formatPrice } from '@/lib/utils'
 import { Plus, Trash2, Bike, Wallet, TrendingUp, Percent, Phone, UserPlus, Info } from 'lucide-react'
 
@@ -11,17 +13,22 @@ export default function CouriersPage() {
   const [form, setForm] = useState({ name:'', phone:'', commission_rate:'0' })
   const [adding, setAdding] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [userStats, setUserStats] = useState({ plan: "", count: 0, maxLimit: 1 });
 
   const load = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const plan = await getUserPlan(user.id);
+    const { count } = await supabase.from("couriers").select("*", { count: "exact", head: true }).eq("user_id", user.id);
     const [{ data: c }, { data: w }] = await Promise.all([
-      supabase.from('couriers').select('*').eq('user_id', user.id).order('created_at'),
-      supabase.from('wallet').select('*').eq('user_id', user.id).single(),
-    ])
-    setCouriers(c || [])
-    setWallet(w)
-    setLoading(false)
+      supabase.from("couriers").select("*").eq("user_id", user.id).order("created_at"),
+      supabase.from("wallet").select("*").eq("user_id", user.id).single(),
+    ]);
+    setCouriers(c || []);
+    setWallet(w);
+    setUserStats({ plan: plan.name, count: count || 0, maxLimit: plan.max_couriers });
+    setLoading(false);
+  };
   }
 
   useEffect(() => { load() }, [])
@@ -33,6 +40,11 @@ export default function CouriersPage() {
     let phone = form.phone.replace(/\s/g,'')
     if (phone.startsWith('0')) phone = '+2' + phone
     else if (phone && !phone.startsWith('+')) phone = '+2' + phone
+    if (userStats.count >= userStats.maxLimit) {
+      setAdding(false);
+      return Swal.fire({ icon: 'warning', title: 'عفواً، انتهت حدود باقتك', text: 'باقة ' + userStats.plan + ' تسمح بـ ' + userStats.maxLimit + ' مناديب فقط.', background: '#0a0a0a', color: '#fff', confirmButtonColor: '#D4AF37' });
+    }
+
     await supabase.from('couriers').insert({
       name: form.name,
       phone: phone || null,

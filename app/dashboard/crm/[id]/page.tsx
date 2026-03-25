@@ -41,7 +41,7 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
       const { data } = await supabase.from('invoices')
         .select('*, invoice_items(*)')
         .eq('user_id', user.id)
-        .or(`customer_phone.eq.${identifier},customer_name.eq.${identifier}`)
+        .or(`customer.phone_number.eq.${identifier},customer_name.eq.${identifier}`)
         .order('created_at', { ascending: false })
       
       const inv = data || []
@@ -49,7 +49,7 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
         const totalSpent = inv.filter((i:any) => i.status==='paid').reduce((s:number,i:any) => s+Number(i.total_amount), 0)
         const returned = inv.filter((i:any) => i.order_status==='returned').length
         const tier = returned > 0 ? 'risk' : inv.length >= 5 ? 'gold' : inv.length >= 2 ? 'silver' : 'bronze'
-        setCustomer({ name:inv[0].customer_name, phone:inv[0].customer_phone, address:inv[0].customer_address, totalOrders:inv.length, totalSpent, returned, tier })
+        setCustomer({ name:inv[0].customer_name, phone:inv[0].customer.phone_number, address:inv[0].customer_address, totalOrders:inv.length, totalSpent, returned, tier })
       }
       setOrders(inv)
       setLoading(false)
@@ -104,12 +104,12 @@ export default function CustomerPage({ params }: { params: Promise<{ id: string 
               <span style={{padding:'.2rem .65rem',borderRadius:'99px',background:tier.glow?'rgba(212,175,55,0.12)':'rgba(255,255,255,0.06)',color:tier.color,fontSize:'.78rem',fontWeight:700}}>{tier.icon} {tier.label}</span>
             </div>
             <div style={{display:'flex',gap:'1rem',flexWrap:'wrap'}}>
-              {customer.phone && <span style={{display:'flex',alignItems:'center',gap:'.3rem',fontSize:'.82rem',color:'rgba(255,255,255,0.4)'}}><Phone size={12}/>{customer.phone}</span>}
+              {customer.phone_number && <span style={{display:'flex',alignItems:'center',gap:'.3rem',fontSize:'.82rem',color:'rgba(255,255,255,0.4)'}}><Phone size={12}/>{customer.phone_number}</span>}
               {customer.address && <span style={{display:'flex',alignItems:'center',gap:'.3rem',fontSize:'.82rem',color:'rgba(255,255,255,0.4)'}}><MapPin size={12}/>{customer.address}</span>}
             </div>
           </div>
-          {customer.phone && (
-            <a href={`https://wa.me/${customer.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:'.4rem',padding:'.6rem 1rem',borderRadius:'.75rem',background:'rgba(37,211,102,0.1)',color:'#25d366',border:'1px solid rgba(37,211,102,0.2)',textDecoration:'none',fontSize:'.85rem',fontWeight:600}}>
+          {customer.phone_number && (
+            <a href={`https://wa.me/${customer.phone_number.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',gap:'.4rem',padding:'.6rem 1rem',borderRadius:'.75rem',background:'rgba(37,211,102,0.1)',color:'#25d366',border:'1px solid rgba(37,211,102,0.2)',textDecoration:'none',fontSize:'.85rem',fontWeight:600}}>
               <MessageCircle size={14}/> واتساب
             </a>
           )}

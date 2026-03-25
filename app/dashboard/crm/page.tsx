@@ -15,6 +15,7 @@ export default function CRMPage() {
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
   const [plan, setPlan] = useState('مجانية')
+  const [lastCouriers, setLastCouriers] = useState<any[]>([])
   
   const load = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -22,7 +23,7 @@ export default function CRMPage() {
 
     const [{ data: profile }, { data: inv }] = await Promise.all([
       supabase.from('profiles').select('plan_name').eq('id', user.id).single(),
-      supabase.from('invoices').select('*').eq('user_id', user.id)
+      supabase.from('invoices').select('*, couriers(name)').eq('user_id', user.id)
     ])
 
     const currentPlan = profile?.plan_name || 'مجانية'
@@ -30,9 +31,9 @@ export default function CRMPage() {
 
     const map: Record<string, any> = {}
     inv?.forEach((i: any) => {
-      const key = i.customer_phone || i.customer_name
+      const key = i.customer.phone_number || i.customer_name
       if (!map[key]) {
-        map[key] = { name: i.customer_name, phone: i.customer_phone, orders: 0, spent: 0, returns: 0, tier: 'bronze' }
+        map[key] = { name: i.customer_name, phone: i.customer.phone_number, orders: 0, spent: 0, returns: 0, tier: 'bronze' }
       }
       map[key].orders++
       if (i.status === 'paid') map[key].spent += Number(i.total_amount)

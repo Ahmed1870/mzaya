@@ -13,25 +13,32 @@ export default function DashboardPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
+  const [newOrderNotify, setNewOrderNotify] = useState(false);
 
   useEffect(() => {
+    const channel = supabase.channel('realtime_orders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'invoices' }, (payload) => {
+        setNewOrderNotify(true);
+        new Audio('/notification.mp3').play().catch(() => {});
+        loadStats();
+      }).subscribe();
     async function fetchStats() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
       const [products, orders, wallet, profile] = await Promise.all([
         supabase.from('products').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-        supabase.from('orders').select('*', { count: 'exact', head: true }).eq('user_id', user.id).neq('status', 'returned'),
+        supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('user_id', user.id).neq('status', 'returned'),
         supabase.from('wallet').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('profiles').select('business_name, username').eq('id', user.id).maybeSingle()
+        supabase.from('profiles').select('shop_name, username').eq('id', user.id).maybeSingle()
       ])
 
       setData({
-        products: products.count || 0,
+        products: products.count || 0, maxProducts: profile.data?.max_products || 10,
         orders: orders.count || 0,
-        balance: wallet?.data?.balance || 0,
-        revenue: wallet?.data?.total_revenue || 0,
-        businessName: profile.data?.business_name || 'إمبراطوريتك',
+        balance: wallet?.balance || 0,
+        revenue: wallet?.total_revenue || 0,
+        businessName: profile.data?.shop_name || 'إمبراطوريتك',
         username: profile.data?.username || ''
       })
       setLoading(false)

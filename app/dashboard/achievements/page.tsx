@@ -68,7 +68,7 @@ export default function AchievementsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const [{ data: invData }, { count: productCount }, { count: referralCount }, { data: allProfiles }] = await Promise.all([
-        supabase.from('invoices').select('*').eq('user_id', user.id),
+        supabase.from('merchant_stats').select('*').eq('user_id', user.id).single(),
         supabase.from('products').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
         supabase.from('commissions').select('*', { count: 'exact', head: true }).eq('referrer_id', user.id),
         supabase.from('profiles').select('id')
@@ -76,15 +76,16 @@ export default function AchievementsPage() {
       const inv = invData || []; const paid = inv.filter(i => i.status === 'paid'); const now = new Date();
       const thisMonthRev = paid.filter(i => new Date(i.created_at).getMonth() === now.getMonth()).reduce((s, i) => s + Number(i.total_amount), 0);
       const badges = [
+        { id: 'business', icon: '💎', name: 'وسام البيزنس', desc: 'تاجر معتمد في باقة الاحتراف', unlocked: (allProfiles?.find(p => p.id === user.id)?.plan_name === 'البيزنس') },
         { id: 'rocket', icon: '🚀', name: 'وسام الصاروخ', desc: 'أتممت ١٠ أوردرات ناجحة', unlocked: paid.length >= 10 },
         { id: 'gold', icon: '🏆', name: 'وسام الذهب', desc: 'إيرادات تخطت ٥٠٠٠ ج.م', unlocked: thisMonthRev >= 5000 },
         { id: 'stock', icon: '📦', name: 'خبير المخازن', desc: 'لديك أكثر من ٢٠ منتج', unlocked: (productCount || 0) >= 20 },
         { id: 'loyal', icon: '⭐', name: 'شريك مؤسس', desc: 'من أوائل تجار المنصة', unlocked: true },
       ]
       setData({
-        shopName: user.user_metadata?.shop_name || 'تاجر مزايا',
-        totalRevenue: paid.reduce((s, i) => s + Number(i.total_amount), 0),
-        paidOrders: paid.length, rank: 1 + (allProfiles?.length || 0) % 10,
+        shopName: data?.shop_name || 'تاجر مزايا',
+        totalRevenue: data?.net_profit || 0,
+        paidOrders: data?.orders_count || 0, rank: 1 + (allProfiles?.length || 0) % 10,
         thisMonthDaily: Array(now.getDate()).fill(0).map((_, i) => paid.filter(d => new Date(d.created_at).getDate() === i+1).reduce((s,d) => s+Number(d.total_amount), 0)),
         lastMonthDaily: Array(30).fill(0), badges
       }); setLoading(false)

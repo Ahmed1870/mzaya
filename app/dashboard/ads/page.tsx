@@ -22,7 +22,7 @@ export default function AdsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const [prodRes, profRes] = await Promise.all([
-      supabase.from('products').select('id,name,price,description').eq('user_id', user.id),
+      supabase.from('products').select('id,name,price,description,stock').eq('user_id', user.id),
       supabase.from('profiles').select('plan_name, ads_generated').eq('id', user.id).single()
     ])
     
@@ -58,7 +58,7 @@ export default function AdsPage() {
           'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({ 
-          productName: product.name, 
+          productName: product.name, productPrice: product.price, productStock: product.stock, 
           productDesc: product.description || 'منتج مميز بجودة عالية', 
           platform, tone, targetAudience 
         })

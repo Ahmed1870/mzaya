@@ -15,10 +15,10 @@ export default function ReportsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const [ { data: inv }, { data: wall }, { data: prof } ] = await Promise.all([
+      const [ { data: inv }, { data: wall }, { data: stats }, { data: prof } ] = await Promise.all([
         supabase.from('invoices').select('*').eq('user_id', user.id),
-        supabase.from('wallets').select('*').eq('user_id', user.id).single(),
-        supabase.from('profiles').select('*').eq('id', user.id).single()
+        supabase.from('wallet').select('*').eq('user_id', user.id).single(),
+        supabase.from('merchant_stats').select('*').eq('id', user.id).single()
       ])
 
       // إجبار البيانات على التحول لنوع any لمنع اعتراض الـ Build
@@ -48,8 +48,8 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5">
           <TrendingUp className="text-green-400 mb-4" size={32} />
-          <p className="text-gray-400 font-bold mb-1">إجمالي الفواتير</p>
-          <h2 className="text-4xl font-black text-white">{data.inv?.length || 0}</h2>
+          <p className="text-gray-400 font-bold mb-1">صافي الأرباح</p>
+          <h2 className="text-4xl font-black text-white">{data.stats?.net_profit || 0} EGP</h2>
         </div>
         
         <div className="bg-white/5 p-8 rounded-[2.5rem] border border-white/5">

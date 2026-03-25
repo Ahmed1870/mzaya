@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getUserPlan } from '@/lib/plans'
 import { ShieldCheck, Users, Package, Wallet, Clock, Check, Calendar, CreditCard, Award, Star, Crown } from 'lucide-react'
 import Swal from 'sweetalert2'
 
@@ -31,17 +32,18 @@ export default function SuperAdminRadar() {
     // 2. رادار الإحالات (التجار اللي جابوا 5 أو أكثر ولم يتم ترقيتهم بعد)
     const { data: profiles } = await supabase
       .from('profiles')
-      .select('id, shop_name, full_name, plan_type, created_at')
+      .select('id, shop_name, full_name, plan_name, created_at')
     
     // حسبة برمجية ذكية لجلب المستحقين فقط
-    const eligible = await Promise.all((profiles || []).map(async (prof) => {
-        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('referrer_id', prof.id)
-        return { ...prof, referral_count: count || 0 }
-    }))
+    const { data: referralData } = await supabase.from("referral_counts").select("*");
+    const eligible = profiles?.map(p => ({
+      ...p,
+      referral_count: referralData?.find(r => r.referrer_id === p.id)?.total_referrals || 0
+    })).filter(p => p.referral_count >= 5) || [];
 
     setReferralRequests(eligible.filter(p => 
-        (p.referral_count >= 5 && p.plan_type === 'free') || 
-        (p.referral_count >= 10 && p.plan_type === 'business')
+        (p.referral_count >= 5 && p.plan_name === 'free') || 
+        (p.referral_count >= 10 && p.plan_name === 'البيزنس')
     ))
     
     setLoading(false)
@@ -68,7 +70,7 @@ export default function SuperAdminRadar() {
     if (isConfirmed) {
       const expiry = new Date(); expiry.setDate(expiry.getDate() + 30)
       await supabase.from('subscriptions_requests').update({ status: 'approved' }).eq('id', req.id)
-      await supabase.from('profiles').update({ plan_type: req.plan_name }).eq('id', req.user_id)
+      await supabase.from('profiles').update({ plan_name: req.plan_name, subscription_status: 'active', updated_at: new Date().toISOString() }).eq('id', req.user_id)
       
       await supabase.channel(`user-updates-${req.user_id}`).send({
         type: 'broadcast',
@@ -82,7 +84,7 @@ export default function SuperAdminRadar() {
 
   // دالة تفعيل الإحالات (الميزة الجديدة)
   const handleReferralActivate = async (user: any) => {
-    const nextPlan = user.referral_count >= 10 ? 'pro' : 'business'
+    const nextPlan = user.referral_count >= 10 ? 'pro' : 'البيزنس'
     const { isConfirmed } = await Swal.fire({
       title: 'تفعيل مكافأة الإحالة',
       html: `التاجر <b>${user.shop_name}</b> جاب <b>${user.referral_count}</b> إحالة.<br>ترقية إلى باقة: <b style="color:#d4af37">${nextPlan}</b>؟`,
@@ -94,7 +96,7 @@ export default function SuperAdminRadar() {
     })
 
     if (isConfirmed) {
-      const { error } = await supabase.from('profiles').update({ plan_type: nextPlan }).eq('id', user.id)
+      const { error } = await supabase.from('profiles').update({ plan_name: nextPlan, subscription_status: 'active', updated_at: new Date().toISOString() }).eq('id', user.id)
       if (!error) {
         await supabase.channel(`user-updates-${user.id}`).send({
           type: 'broadcast',

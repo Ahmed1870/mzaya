@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { getUserPlan } from '@/lib/plans'
 import { ShieldCheck, Users, Package, Wallet, ArrowLeftRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 
@@ -10,8 +11,11 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function getStats() {
-      // جلب عدد التجار
-      const { count: t } = await supabase.from('profiles').select('*', { count: 'exact', head: true })
+      const { count: t } = await supabase.from("profiles").select("*", { count: "exact", head: true });
+      const { count: p } = await supabase.from("products").select("*", { count: "exact", head: true });
+      const { data: subs } = await supabase.from("profiles").select("plan_name").neq("plan_name", "مجاني");
+      setStats({ traders: t || 0, products: p || 0, revenue: (subs?.length || 0) * 100 }); // مثال: حساب تقديري بناء على المشتركين
+    }
       // جلب عدد المنتجات
       const { count: p } = await supabase.from('products').select('*', { count: 'exact', head: true })
       // جلب إجمالي الأرباح من الطلبات المقبولة فقط

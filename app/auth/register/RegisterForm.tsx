@@ -8,7 +8,8 @@ import { Mail, Lock, User, ArrowRight, Loader2, Sparkles } from 'lucide-react'
 
 export default function RegisterForm() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [password, options: { data: { shop_name: shopName }, emailRedirectTo: `${window.location.origin}/auth/callback` }, setPassword] = useState('')
+  const [shopName, setShopName] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
@@ -18,7 +19,7 @@ export default function RegisterForm() {
 
     const { data, error } = await supabase.auth.signUp({
       email,
-      password,
+      password, options: { data: { shop_name: shopName }, emailRedirectTo: `${window.location.origin}/auth/callback` },
       options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     })
 
@@ -72,6 +73,13 @@ export default function RegisterForm() {
           </div>
 
           <form onSubmit={handleRegister} className="space-y-8">
+          <div className="space-y-2">
+            <label className="text-xs font-black text-gray-400 mr-4 uppercase tracking-[2px]">Store Name / اسم المتجر</label>
+            <div className="relative group">
+              <input required type="text" className="w-full bg-white/5 border border-white/10 p-6 rounded-3xl outline-none focus:border-[#D4AF37] transition-all text-white font-bold" onChange={e => setShopName(e.target.value)} />
+              <Sparkles className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-600 group-focus-within:text-[#D4AF37]" size={20} />
+            </div>
+          </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-gray-400 mr-4 uppercase tracking-[2px]">Identity / البريد</label>
               <div className="relative group">

@@ -18,13 +18,13 @@ export default function WalletPage() {
     if (!user) return
 
     const [{ data: rd }, { data: w }, { data: pendingInv }, { data: paidInv }] = await Promise.all([
-      supabase.from('wallet_radar').select('*').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('plan_name, max_products').eq('id', user.id).single(),
       supabase.from('wallet').select('*').eq('user_id', user.id).single(),
       supabase.from('invoices').select('total_amount').eq('order_status', 'out_for_delivery'),
-      supabase.from('invoices').select('*').eq('status', 'paid').order('created_at', { ascending: false }).limit(8),
+      supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(10).order('created_at', { ascending: false }).limit(8),
     ])
 
-    setRadar(rd)
+    setRadar(rd); // rd now contains profile info
     setWallet(w)
     setPending((pendingInv || []).reduce((s, i) => s + Number(i.total_amount), 0))
     setRecentTx(paidInv || [])

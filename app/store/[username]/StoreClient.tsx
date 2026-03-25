@@ -48,12 +48,17 @@ export function StoreClient({ profile, products: initialProducts }: { profile: a
     
     try {
         // نداء الـ Database Function الأخطبوطية
-        const { error } = await supabase.rpc('create_complete_order', {
-            p_user_id: profile.id,
-            p_customer_name: customer.name,
-            p_customer_phone: customer.phone,
-            p_customer_address: customer.address,
-            p_total_amount: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+        const { error } = await supabase.from('invoices').insert, {
+            user_id: profile.id,
+            customer_name: customer.name,
+            customer_phone: customer.phone,
+            customer_address: customer.address,
+        source: 'online_store',
+        order_status: 'pending',
+            total_amount: cart.reduce((s, i) => s + (i.price * i.quantity), 0),
+        source: 'online_store',
+        status: 'pending',
+        order_status: 'pending',
             p_items: cart.map(i => ({ product_id: i.id, product_name: i.name, unit_price: i.price, quantity: i.quantity }))
         })
 

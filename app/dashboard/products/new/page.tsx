@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { getUserPlan } from '@/lib/plans'
 import { Sparkles, Upload, ArrowRight, Camera, ImageIcon, Loader2, Lock } from 'lucide-react'
 import Swal from 'sweetalert2'
 
@@ -18,19 +19,31 @@ export default function NewProductPage() {
   const [userStats, setUserStats] = useState({ plan: 'جاري التحميل...', count: 0, isPremium: false, maxLimit: 10 })
 
   useEffect(() => {
-    const checkLimits = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+  const checkLimits = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const plan = await getUserPlan(user.id);
+    const { count } = await supabase.from("products").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+    setUserStats({ plan: plan.name, count: count || 0, isPremium: plan.isPremium, maxLimit: plan.max_products });
+  };
       if (!user) return
       
-      const { data: profile } = await supabase.from('profiles').select('plan_name').eq('id', user.id).single()
+      const { data: profile } = await supabase.from('profiles').select('plan_name').eq('id', user.id).maybeSingle()
+
+      const { data: plan } = await supabase
+        .from('subscription_plans')
+        .select('max_products')
+        .eq('plan_id', profile?.plan_name)
+        .maybeSingle()
+
       const { count } = await supabase.from('products').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
       
-      const isPremium = profile?.plan_name === 'البيزنس' || profile?.plan_name === 'الاحترافية'
+      const isPremium = profile?.plan_name !== 'مجاني'
       setUserStats({ 
         plan: profile?.plan_name || 'مجانية', 
         count: count || 0, 
         isPremium, 
-        maxLimit: 10 
+        maxLimit: plan?.max_products || 10 
       })
     }
     checkLimits()
@@ -69,6 +82,11 @@ export default function NewProductPage() {
         await supabase.storage.from('product-images').upload(path, imageFile)
         imageUrl = supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl
       }
+      if (userStats.count >= userStats.maxLimit) {
+        setSaving(false);
+        return Swal.fire({ icon: 'warning', title: 'عفواً، انتهت حدود باقتك', text: 'لقد وصلت للحد الأقصى للمنتجات المسموح بها في باقة ' + userStats.plan, background: '#0a0a0a', color: '#fff', confirmButtonColor: '#D4AF37' });
+      }
+
       const { error } = await supabase.from('products').insert({
         user_id: user?.id, name: form.name.trim(), price: parseFloat(form.price), 
         cost: form.cost ? parseFloat(form.cost) : 0, stock: parseInt(form.stock) || 0, 
