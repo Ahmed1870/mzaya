@@ -1,5 +1,5 @@
-import { CreditCard } from 'lucide-react'
-'use client'
+'use client';
+import { CreditCard } from 'lucide-react';
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { ShieldCheck, Users, Package, Wallet, Clock, CheckCircle2, Star, Rocket, Gift } from 'lucide-react'
