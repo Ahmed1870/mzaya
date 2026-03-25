@@ -48,7 +48,7 @@ export function StoreClient({ profile, products: initialProducts }: { profile: a
     
     try {
         // نداء الـ Database Function الأخطبوطية
-        const { error } = await supabase.from('invoices').insert, {
+        const { error } = await supabase.from('invoices').insert({
             user_id: profile.id,
             customer_name: customer.name,
             customer_phone: customer.phone,
